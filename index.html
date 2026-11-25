@@ -1,0 +1,1417 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>제휴상품 마진 관리</title>
+<style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<script src="config.js"></script>
+</head><body>
+<style>
+/* Layout: 앱바 → [신규 상품 검토] 조건 입력(본품 + 선택 구성품) | 미니 보고서(회의 중 조정 입력 + 섹션) → 산식·표 → 시나리오 / [등록 상품] 제휴사 시트 */
+:root{
+  --bg:#eef1f5; --surface:#ffffff; --surface-2:#f1f4f8; --line:#d9dfe8; --line-2:#b9c3d3;
+  --fg:#141b26; --muted:#566275; --accent:#1d4fd8; --accent-soft:#e4ebfd; --ink:#0f2a6b;
+  --buy:#8b98ad; --comp:#7b5cc4; --comp-soft:#efe9fb; --good:#0f7a48; --good-soft:#dcf2e6; --warn:#9a5800; --warn-soft:#fcefd7;
+  --bad:#c0272d; --bad-soft:#fbe2e2; --input:#fffbe8; --hi:#fff1a8;
+  --f-body:"IBM Plex Sans KR",system-ui,"Malgun Gothic",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e131a; --surface:#161d27; --surface-2:#1c2531; --line:#2b3543; --line-2:#435066;
+  --fg:#e7ecf3; --muted:#97a3b6; --accent:#7ea5ff; --accent-soft:#1b2848; --ink:#c9d8ff; --buy:#5e6c82; --comp:#b39af0; --comp-soft:#2a2245;
+  --good:#4fd08f; --good-soft:#12321f; --warn:#f0b056; --warn-soft:#382810;
+  --bad:#ff7b7f; --bad-soft:#3b1619; --input:#212a37; --hi:#4a3f0c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e131a; --surface:#161d27; --surface-2:#1c2531; --line:#2b3543; --line-2:#435066;
+  --fg:#e7ecf3; --muted:#97a3b6; --accent:#7ea5ff; --accent-soft:#1b2848; --ink:#c9d8ff; --buy:#5e6c82; --comp:#b39af0; --comp-soft:#2a2245;
+  --good:#4fd08f; --good-soft:#12321f; --warn:#f0b056; --warn-soft:#382810;
+  --bad:#ff7b7f; --bad-soft:#3b1619; --input:#212a37; --hi:#4a3f0c; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:18px 40px}
+.wrap{max-width:1440px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1{font-size:20px;margin:0;font-weight:700;letter-spacing:-.01em}
+h2{font-size:15px;margin:0;font-weight:700}
+.sub{color:var(--muted);font-size:13px;margin:2px 0 0}
+.appbar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid var(--line-2);padding-bottom:12px}
+.nav{display:flex;gap:4px;background:var(--surface-2);padding:4px;border-radius:8px;border:1px solid var(--line)}
+.nav button{border:none;background:none;padding:8px 16px;font-weight:600;color:var(--muted)}
+.nav button.on{background:var(--surface);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.1)}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:7px 12px;border-radius:6px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--surface);font-weight:600}
+button.on{background:var(--ink);border-color:var(--ink);color:var(--surface)}
+button.danger{color:var(--bad)}
+button.armed{border-color:var(--bad);background:var(--bad-soft);color:var(--bad)}
+button.link{border:none;background:none;color:var(--accent);padding:2px 4px;font-weight:600}
+button.add-comp{width:100%;border-style:dashed;color:var(--comp);border-color:var(--comp);background:var(--comp-soft);font-weight:600}
+button:focus-visible,input:focus-visible,tr.go:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px;min-width:0}
+.panel-h{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+input{font:inherit;color:var(--fg);background:var(--input);border:1px solid var(--line);border-radius:5px;padding:7px 9px;width:100%;min-width:0}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label{font-size:12px;color:var(--muted);font-weight:600}
+.field .hint{font-size:11px;color:var(--muted)}
+input.num{text-align:right;font-variant-numeric:tabular-nums}
+.unit{position:relative} .unit input{padding-right:38px}
+.unit span{position:absolute;right:9px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--muted);pointer-events:none}
+.err{border-color:var(--bad)!important;background:var(--bad-soft)!important}
+.up{color:var(--good)} .down{color:var(--bad)}
+/* ── 계산 화면 ── */
+.calc-grid{display:grid;grid-template-columns:minmax(0,370px) minmax(0,1fr);gap:16px;align-items:start}
+.calc-grid>.panel:first-child{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow-y:auto}
+@media (max-width:1000px){.calc-grid{grid-template-columns:1fr}.calc-grid>.panel:first-child{position:static;max-height:none}}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.form-grid .full{grid-column:1/-1}
+.grp{grid-column:1/-1;font-size:11.5px;font-weight:700;color:var(--accent);letter-spacing:.05em;border-top:1px solid var(--line);padding-top:10px}
+.grp.c{color:var(--comp)}
+.grp:first-child{border-top:none;padding-top:0}
+.fixed365{display:flex;justify-content:space-between;background:var(--accent-soft);color:var(--accent);border-radius:6px;padding:7px 10px;font-size:12.5px;font-weight:600}
+.example{background:var(--warn-soft);color:var(--warn);border-radius:6px;padding:8px 10px;font-size:12px;margin-bottom:12px;font-weight:500}
+.src{background:var(--accent-soft);color:var(--accent);border-radius:6px;padding:8px 10px;font-size:12px;margin-bottom:12px;font-weight:500}
+.comp{grid-column:1/-1;border:1px solid var(--comp);background:var(--comp-soft);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.comp-h{display:flex;gap:6px;align-items:center}
+.comp-h .tag{font-size:11px;font-weight:700;color:var(--comp);white-space:nowrap}
+.comp-g{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.comp .field label{font-size:11px}
+details.adv summary{cursor:pointer;font-size:12.5px;color:var(--muted);font-weight:600}
+details.adv[open] summary{margin-bottom:10px}
+.form-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.form-actions button{flex:1}
+/* ── 미니 보고서 ── */
+.doc{background:var(--surface);border:1px solid var(--line-2);border-radius:10px;overflow:hidden;min-width:0}
+.meet{background:var(--surface-2);border-bottom:1px solid var(--line);padding:12px 16px;display:flex;flex-direction:column;gap:10px}
+.meet-top{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.meet-top .t{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.04em}
+.meet-in{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px}
+.mi{display:flex;flex-direction:column;gap:3px;min-width:0}
+.mi label{font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mi.c label{color:var(--comp)}
+.mi input{padding:6px 34px 6px 8px;font-weight:700;font-size:14px;background:var(--surface)}
+.mi.c input{border-color:var(--comp)}
+.doc-body{padding:26px 30px 24px;display:flex;flex-direction:column;gap:26px}
+@media (max-width:640px){.doc-body{padding:20px 16px}}
+.doc-head{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-start;border-bottom:2px solid var(--fg);padding-bottom:14px}
+.doc-head .eb{font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.08em}
+.doc-head h2{font-size:24px;letter-spacing:-.02em;margin-top:2px;text-wrap:balance}
+.doc-head .meta{font-size:12.5px;color:var(--muted);margin-top:4px}
+.verdict-pill{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.verdict-pill .p{font-size:16px;font-weight:700;padding:8px 16px;border-radius:999px;color:var(--surface)}
+.verdict-pill .p.good{background:var(--good)} .verdict-pill .p.warn{background:var(--warn)} .verdict-pill .p.bad{background:var(--bad)}
+.verdict-pill .s{font-size:11.5px;color:var(--muted)}
+.sec h3{font-size:15px;margin:0 0 10px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.sec h3 .n{font-family:var(--f-mono);font-size:12px;color:var(--accent)}
+.sec h3 .r{margin-left:auto;font-size:12px;color:var(--muted);font-weight:500}
+.sec.set h3 .n{color:var(--comp)}
+.conclusion{font-size:17px;line-height:1.7;font-weight:500;margin:0 0 14px;text-wrap:pretty}
+mark{background:var(--hi);color:inherit;padding:0 3px;border-radius:3px;font-weight:700}
+.kgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:720px){.kgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.k{border:1px solid var(--line);border-radius:8px;padding:12px 14px;min-width:0}
+.k .l{font-size:12px;color:var(--muted);font-weight:600}
+.k .v{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1.25;margin-top:2px}
+.k .v small{font-size:14px;font-weight:600;margin-left:2px}
+.k .s{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:2px}
+.k .dl{font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:4px}
+.k.good{background:var(--good-soft);border-color:transparent} .k.good .v{color:var(--good)}
+.k.warn{background:var(--warn-soft);border-color:transparent} .k.warn .v{color:var(--warn)}
+.k.bad{background:var(--bad-soft);border-color:transparent} .k.bad .v{color:var(--bad)}
+.k.ink{background:var(--ink);border-color:var(--ink)} .k.ink .l,.k.ink .s{color:var(--surface);opacity:.85} .k.ink .v,.k.ink .dl{color:var(--surface)}
+.chain{display:flex;flex-wrap:wrap;align-items:stretch;gap:6px;margin-bottom:14px}
+.chain .c{border:1px solid var(--line);border-radius:6px;padding:6px 10px;min-width:0}
+.chain .c .l{font-size:11px;color:var(--muted)} .chain .c .v{font-weight:700;font-variant-numeric:tabular-nums}
+.chain .c.res{background:var(--surface-2);border-color:var(--line-2)}
+.chain .c.cp{background:var(--comp-soft);border-color:var(--comp)} .chain .c.cp .l{color:var(--comp)}
+.chain .op{align-self:center;color:var(--muted);font-weight:700}
+.chain .brk{flex-basis:100%;height:0}
+.wf{display:flex;flex-direction:column;gap:7px}
+.wf .row{display:grid;grid-template-columns:110px minmax(0,1fr) 118px;gap:10px;align-items:center;font-size:13px}
+.wf .track{height:22px;position:relative;background:var(--surface-2);border-radius:4px}
+.wf .bar{position:absolute;top:0;bottom:0;border-radius:4px}
+.wf .amt{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+@media (max-width:560px){.wf .row{grid-template-columns:76px minmax(0,1fr) 96px;font-size:12px}}
+.rt-wrap{overflow-x:auto}
+.rt{width:100%;border-collapse:collapse;font-size:13.5px}
+.rt th,.rt td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rt th{font-size:12px;color:var(--muted);font-weight:600;background:var(--surface-2)}
+.rt td.n,.rt th.n{text-align:right}
+.rt tr.em td{font-weight:700;background:var(--accent-soft)}
+.rt tr.cp td:first-child{color:var(--comp);font-weight:600}
+.rt td .note{font-size:11.5px;color:var(--muted);font-weight:400;white-space:normal}
+.callout{border-radius:8px;padding:12px 14px;font-size:14px;line-height:1.65;margin-top:12px}
+.callout.c{background:var(--comp-soft);border:1px solid var(--comp)}
+.callout b{font-weight:700}
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 8px}
+.seg button{padding:5px 12px;font-size:12.5px;border-color:var(--comp);color:var(--comp)}
+.seg button.on{background:var(--comp);color:var(--surface);border-color:var(--comp)}
+.bepbar{margin-top:14px}
+.bepbar .track{height:14px;background:var(--surface-2);border-radius:7px;position:relative}
+.bepbar .fill{position:absolute;left:0;top:0;bottom:0;border-radius:7px}
+.bepbar .mk{position:absolute;top:-5px;bottom:-5px;width:2px;background:var(--fg)}
+.bepbar .lbls{position:relative;height:34px;font-size:11.5px;font-variant-numeric:tabular-nums}
+.bepbar .lbls span{position:absolute;top:6px;transform:translateX(-50%);white-space:nowrap;font-weight:600}
+.bounds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:720px){.bounds{grid-template-columns:1fr}}
+.bd{border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.bd .l{font-size:12px;font-weight:700;margin-bottom:8px}
+.bd .ln{display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;font-variant-numeric:tabular-nums;gap:8px;align-items:center}
+.bd .ln span{color:var(--muted)} .bd .ln b{white-space:nowrap}
+.bd .ln.cur{border-top:1px dashed var(--line);margin-top:4px;padding-top:6px}
+.recs{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+.recs li{display:grid;grid-template-columns:22px 1fr;gap:8px;font-size:14px;line-height:1.65}
+.recs li::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--accent);margin:8px 0 0 6px}
+.recs li.w::before{background:var(--warn)} .recs li.b::before{background:var(--bad)} .recs li.g::before{background:var(--good)} .recs li.c::before{background:var(--comp)}
+.doc-foot{font-size:11.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:12px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.chip{display:inline-block;padding:2px 9px;border-radius:999px;font-weight:600;font-size:12px;white-space:nowrap}
+.chip.good{background:var(--good-soft);color:var(--good)} .chip.warn{background:var(--warn-soft);color:var(--warn)} .chip.bad{background:var(--bad-soft);color:var(--bad)} .chip.info{background:var(--accent-soft);color:var(--accent)} .chip.cp{background:var(--comp-soft);color:var(--comp)}
+.empty{color:var(--muted);padding:40px 16px;font-size:14px;text-align:center}
+/* ── 상세 ── */
+.formula{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.formula li{display:grid;grid-template-columns:26px minmax(110px,160px) minmax(0,1fr) auto;gap:10px;align-items:baseline;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13px}
+.formula .no{font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.formula .nm{font-weight:600} .formula .ex{color:var(--muted);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.formula .rs{font-weight:700;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.formula li.key{background:var(--accent-soft);border-radius:4px;padding-inline:6px;border-bottom-color:transparent}
+.formula li.cpl .nm{color:var(--comp)}
+.formula li.sec{display:block;font-size:11.5px;font-weight:700;color:var(--accent);letter-spacing:.05em;padding:12px 0 4px;border-bottom:1px solid var(--line)}
+@media (max-width:560px){.formula li{grid-template-columns:22px 1fr auto}.formula .ex{grid-column:2/-1;grid-row:2}}
+details.panel>summary{cursor:pointer;font-weight:700;font-size:15px}
+details.panel[open]>summary{margin-bottom:12px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:16px}
+.chart{width:100%;height:auto;display:block}
+.chart text{font-family:var(--f-body);font-size:11px;fill:var(--muted)}
+.chart .lbl{fill:var(--fg);font-weight:700;font-size:12px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:10px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.kpi .l{font-size:12px;color:var(--muted)} .kpi .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums} .kpi .d{font-size:12px;color:var(--muted)}
+.kpi.main{border-color:var(--accent);background:var(--accent-soft)}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:6px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap;text-align:left;font-variant-numeric:tabular-nums}
+th{background:var(--surface-2);font-weight:600;font-size:12px;color:var(--muted)}
+th.n,td.n{text-align:right}
+th.in{color:var(--fg)} th.in::after{content:" ✎";color:var(--accent);font-weight:400}
+tbody tr:hover td{background:var(--surface-2)}
+tr.hl td{background:var(--accent-soft)} tr.bep td{background:var(--good-soft)}
+tr.go{cursor:pointer}
+tfoot td{font-weight:700;background:var(--surface-2);border-bottom:none}
+.matrix td,.matrix th{text-align:center}
+.matrix td.cur{outline:2px solid var(--accent);outline-offset:-2px}
+.matrix .sm{display:block;font-size:11px;color:var(--muted)}
+.flag{font-size:11px;display:block} .flag.good{color:var(--good)} .flag.bad{color:var(--bad)} .flag.cp{color:var(--comp)}
+.ledger td input{padding:4px 6px;text-align:right;font-variant-numeric:tabular-nums}
+.ledger td.txt input{text-align:left}
+.w-s{width:72px}.w-m{width:86px}.w-l{width:100px}
+.sticky{position:sticky;left:0;background:var(--surface);z-index:1;min-width:140px}
+th.sticky{z-index:2;background:var(--surface-2)} tfoot td.sticky{background:var(--surface-2)}
+.del{border:none;background:none;color:var(--muted);padding:2px 6px;font-size:16px} .del:hover{color:var(--bad)}
+.tabs{display:flex;gap:2px;overflow-x:auto;border-bottom:1px solid var(--line-2)}
+.tab{border-radius:6px 6px 0 0;border-bottom:none;background:var(--surface-2);color:var(--muted);padding:8px 16px;white-space:nowrap}
+.tab.on{background:var(--surface);color:var(--fg);font-weight:700;border-color:var(--line-2);box-shadow:inset 0 3px 0 var(--accent)}
+.sheet-head{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+.sheet-name{font-size:20px;font-weight:700;background:transparent;border:1px dashed transparent;padding:2px 6px;width:auto;max-width:280px}
+.sheet-name:hover,.sheet-name:focus{border-color:var(--line-2);background:var(--input)}
+.bulk{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px 14px}
+.inline{display:flex;gap:6px} .inline input{flex:1}
+.notes{font-size:12.5px;color:var(--muted);line-height:1.7} .notes ol{margin:6px 0 0;padding-left:20px}
+.toast{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 16px;border-radius:6px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20;max-width:calc(100% - 32px)}
+.toast.on{opacity:1}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+/* ── 비교 시트 ── */
+select{font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:7px 9px;max-width:100%}
+.cmp-chips{display:flex;flex-wrap:wrap;gap:8px}
+.pchip{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:9px 13px;border-radius:8px;border:1px solid var(--line-2);background:var(--surface);min-width:132px;text-align:left}
+.pchip .ord{font-size:10.5px;font-weight:700;color:var(--accent);min-height:15px}
+.pchip .t{font-weight:700;font-size:15px} .pchip .d{font-size:11.5px;color:var(--muted);min-height:17px}
+.pchip .m{font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:3px}
+.pchip.on{border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent)}
+.pchip.add{border-style:dashed;color:var(--accent);justify-content:center;align-items:center;font-weight:600}
+.qgen{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.qgen .field{min-width:150px}
+.cmp-sum{font-size:15px;line-height:1.8;display:flex;flex-direction:column;gap:6px;background:var(--surface-2);border-radius:8px;padding:14px 16px}
+.cmp-sum p{margin:0}
+.ctable{width:100%;border-collapse:collapse;font-size:14px}
+.ctable th,.ctable td{padding:9px 14px;border-bottom:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;vertical-align:middle}
+.ctable th:first-child,.ctable td:first-child{text-align:left;color:var(--muted);font-weight:600;font-size:12.5px;position:sticky;left:0;background:var(--surface);z-index:1;min-width:130px}
+.ctable thead th{background:var(--surface-2);vertical-align:bottom}
+.ctable tr.grp td{background:var(--surface-2);font-size:11.5px;font-weight:700;color:var(--accent);letter-spacing:.05em;text-align:left;padding:6px 14px}
+.ctable td.basecol,.ctable th.basecol{background:var(--accent-soft)}
+.ctable .unit{display:inline-block;width:128px}
+.ctable td input{text-align:right;padding:5px 34px 5px 8px;font-weight:600}
+.ctable .big{font-size:19px;font-weight:700;letter-spacing:-.01em}
+.ctable .strong{font-weight:700}
+.ctable .dd{display:block;font-size:11.5px;font-weight:600;min-height:16px}
+.ctable tr.key td{border-bottom:2px solid var(--line-2)}
+.plabel{font-weight:700;font-size:15px;width:140px;background:transparent;border:1px dashed transparent;text-align:right;padding:2px 4px}
+.plabel:hover,.plabel:focus{border-color:var(--line-2);background:var(--input)}
+.best{display:inline-block;font-size:10.5px;font-weight:700;color:var(--good);background:var(--good-soft);border-radius:999px;padding:0 7px;margin-right:4px;vertical-align:3px}
+.cbars{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media (max-width:760px){.cbars{grid-template-columns:1fr}}
+.cbars h4{margin:0 0 4px;font-size:13px}
+.cbar{display:grid;grid-template-columns:72px minmax(0,1fr) 112px;gap:8px;align-items:center;font-size:12.5px;margin-top:6px}
+.cbar .tr{height:20px;background:var(--surface-2);border-radius:4px;position:relative;overflow:hidden}
+.cbar .fl{position:absolute;left:0;top:0;bottom:0;border-radius:4px}
+.cbar .vv{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.pw{position:relative;display:flex}
+.pw .pchip{padding-right:30px}
+.pw .x{position:absolute;top:5px;right:4px;border:none;background:none;color:var(--muted);font-size:16px;line-height:1;padding:3px 6px;border-radius:4px}
+.pw .x:hover{color:var(--bad);background:var(--bad-soft)}
+.pw .lock{position:absolute;top:7px;right:8px;font-size:10.5px;font-weight:700;color:var(--good)}
+.undo{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);display:flex;gap:12px;align-items:center;background:var(--fg);color:var(--bg);padding:8px 10px 8px 16px;border-radius:8px;font-size:13px;z-index:21;box-shadow:0 4px 14px rgba(0,0,0,.2);max-width:calc(100% - 32px)}
+.undo button{background:var(--bg);color:var(--fg);border:none;font-weight:700;padding:6px 12px}
+.sync{display:inline-block;margin-left:6px;padding:1px 9px;border-radius:999px;font-size:11.5px;font-weight:600;vertical-align:1px}
+.sync.on{background:var(--good-soft);color:var(--good)} .sync.wait{background:var(--surface-2);color:var(--muted)} .sync.off{background:var(--warn-soft);color:var(--warn)}
+.migrate{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:var(--accent-soft);border:1px solid var(--accent);border-radius:8px;padding:10px 14px;font-size:13px}
+.dayseg{display:flex;gap:0;border:1px solid var(--line-2);border-radius:6px;overflow:hidden;width:max-content}
+.dayseg button{border:none;border-radius:0;padding:7px 16px;font-weight:600;color:var(--muted);background:var(--surface)}
+.dayseg button+button{border-left:1px solid var(--line-2)}
+.dayseg button.on{background:var(--accent);color:var(--surface)}
+.dsel{font:inherit;font-weight:600;padding:4px 6px;border-radius:5px;border:1px solid var(--line);background:var(--input);color:var(--fg)}
+.guide{background:var(--surface);border:1px solid var(--accent);border-radius:8px;padding:12px 16px}
+.guide summary{cursor:pointer;font-weight:700;color:var(--accent);font-size:14px}
+.guide ol{margin:10px 0 4px;padding-left:22px;line-height:1.8;font-size:13.5px}
+.guide ol b{color:var(--fg)}
+.guide .terms{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:6px 18px;font-size:12.5px;color:var(--muted);margin-top:8px;border-top:1px dashed var(--line);padding-top:8px}
+.guide .terms b{color:var(--fg)}
+.sim-in{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
+.sim-in .field{width:180px}
+.plan-link{font-size:12px;color:var(--muted);margin-top:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+</style>
+
+<div class="wrap">
+  <div class="appbar">
+    <div><h1>제휴상품 마진 관리</h1><p class="sub">옵션상품 일리스료 기준(365일·180일) · 원 단위 계산 <span id="syncPill" class="sync wait">연결 준비 중…</span>
+      <button id="btnLogin" class="primary" hidden style="margin-left:6px;padding:3px 10px;font-size:12px">Google 계정으로 로그인</button>
+      <span id="userLabel" style="margin-left:6px;font-size:12px"></span>
+      <button id="btnLogout" class="link" hidden style="font-size:12px">로그아웃</button></p></div>
+    <nav class="nav" aria-label="화면 전환">
+      <button id="navCalc" data-nav="calc">신규 상품 검토</button>
+      <button id="navList" data-nav="list">등록 상품</button>
+      <button id="navCmp" data-nav="cmp">비교 시트</button>
+    </nav>
+  </div>
+  <div class="migrate" id="migrate" hidden><span id="migrateMsg"></span><div class="btns"><button id="btnMigrate" class="primary">공용으로 올리기</button><button id="btnMigrateNo">올리지 않음</button></div></div>
+  <div id="view" style="display:flex;flex-direction:column;gap:16px"></div>
+  <section class="panel notes">
+    <h2 style="color:var(--fg)">계산 기준</h2>
+    <ol>
+      <li>옵션상품은 <b>365일</b> 또는 <b>180일</b> 리스 중에서 고릅니다(기본 365일). 대당 판매금액 = 일리스료 × 리스 일수.</li>
+      <li><b>기준안 마진 유지 일리스료</b>: 소비자가가 오른 뒤에도 기준안(인상 전)과 같은 마진율 또는 같은 대당 마진을 남기려면 필요한 일리스료입니다(원 단위 올림).</li>
+      <li>제휴 할인가 = 소비자가 × 할인율(원 단위 반올림) + 추가 할인금액. 매입원가 = 소비자가 − 제휴 할인가 + 배송비.</li>
+      <li><b>세트 상품</b>: 매입원가 = 본품 공급가 + Σ(구성품 공급가 × 세트당 수량) + 배송비(세트당 1회). 일리스료는 세트 전체에 1개를 적용합니다. 구성품마다 할인율이 따로 계산됩니다.</li>
+      <li>마진율 = 마진 ÷ 판매금액, 매입 대비 마진 = 마진 ÷ 매입원가, ROI = 순이익 ÷ (매입가액 + 고정비).</li>
+      <li>손익분기 수량 = 고정비 ÷ 대당 마진(올림). 손익분기·목표 일리스료와 필요 할인율은 원 단위 올림이며, 한 가지 조건만 바꾼다고 가정합니다.</li>
+      <li>부가세와 자금조달 이자는 반영하지 않았습니다. 등록 상품·비교안·목표 마진율은 팀 공용 저장소에 저장되어 모두에게 실시간으로 보입니다. 입력 중인 검토 조건과 임시 시나리오는 각자의 브라우저에만 저장됩니다.</li>
+    </ol>
+  </section>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<div class="undo" id="undo" role="status" hidden><span id="undoMsg"></span><button id="btnUndo">되돌리기</button></div>
+
+<script>
+const DAYS = 365;
+const EXAMPLE = {partner:"Arai", name:"신규 헬멧 (예시)", days:365, price:700000, rate:15, extra:10000, ship:3000, fee:2000, qty:100, fixed:3000000, items:[], example:true};
+const KEY = "tayota-partner-margin-v3";       // 이 브라우저 전용: 입력 중인 검토 조건·임시 시나리오
+const OLD_KEY = "tayota-partner-margin-v2";   // 공용 전환 이전 데이터
+let uid = 1;
+const newKey = () => Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const sheetIdByName = new Map(), rowIdByDoc = new Map(), planIdByKey = new Map();
+function sheetIdFor(name){ const k=String(name||"").trim().toLowerCase(); if(!sheetIdByName.has(k)) sheetIdByName.set(k,uid++); return sheetIdByName.get(k); }
+const cloneItems = a => (a||[]).map(it=>({...it, id:uid++}));
+const clonePlans = a => (a||[]).map(p=>({...p, k:p.k||newKey(), id:uid++, items:cloneItems(p.items)}));
+const mkRow = r => ({id:uid++, rate:0, extra:0, ship:0, qty:100, fixed:0, ...r, docId:r.docId||newKey(), order:r.order||Date.now()+Math.random(), items:cloneItems(r.items), plans:clonePlans(r.plans), adopted:null});
+const mkSheet = s => ({id:sheetIdFor(s.name), name:s.name, rows:(s.rows||[]).map(mkRow)});
+function fresh(){ return {set:{target:20, loss:0, fee:0}, sheets:[], scen:[], form:{...EXAMPLE}, base:null}; }
+function load(){
+  const st=fresh();
+  try{ const s=JSON.parse(localStorage.getItem(KEY)) || JSON.parse(localStorage.getItem(OLD_KEY));
+    if(s){ st.scen=(s.scen||[]).map(x=>({...x,id:uid++,items:cloneItems(x.items)}));
+      st.set={target:20,loss:0,fee:0,...s.set}; st.form=s.form||{...EXAMPLE}; st.form.items=cloneItems(st.form.items); delete st.form.src; st.base=s.base||null; } }catch(e){}
+  return st;
+}
+let state = load();
+const ui = {view:"calc", sheet:"sum", comp:0};
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify({scen:state.scen, form:state.form, base:state.base, set:state.set})); }catch(e){} if(shared.mode==="local") saveLocalSheets(); scheduleSync(); }
+/* 공용 저장소가 없을 때: 등록 상품을 이 브라우저에 저장 */
+function saveLocalSheets(){ try{ localStorage.setItem(KEY+"-products", JSON.stringify(allProductDocs())); }catch(e){} }
+function loadLocalSheets(){ try{ const arr=JSON.parse(localStorage.getItem(KEY+"-products")); if(Array.isArray(arr)) importProducts(arr,{silent:true}); }catch(e){} }
+function allProductDocs(){ return state.sheets.flatMap(sh=>sh.rows.map(r=>({_id:r.docId,...toDoc(sh,r)}))); }
+function importProducts(list,opt={}){
+  let added=0, skipped=0;
+  (list||[]).forEach(d=>{ if(!d||!d.name) return; const partner=String(d.partner||"미분류");
+    let sh=findSheet(partner); if(sh && sh.rows.some(x=>x.name.trim()===String(d.name).trim())){ skipped++; return; }
+    if(!sh){ sh={id:sheetIdFor(partner),name:partner,rows:[]}; state.sheets.push(sh); }
+    const row=fromDoc(d._id||newKey(), {...d, order:+d.order||Date.now()+Math.random()}); sh.rows.push(row); added++; });
+  if(!opt.silent){ save(); render(); toast(`${added}개 상품을 가져왔습니다${skipped?` (이미 있는 ${skipped}개는 건너뜀)`:""}`); }
+  return {added,skipped};
+}
+
+/* ---------- 공용 저장소 (팀 전체가 같은 등록 상품·비교안을 봄) ---------- */
+const shared = {db:null, on:false, ready:false, mode:"init"};
+const synced = new Map(), inflight = new Map(), pendingDel = new Set(), chains = new Map();
+let syncedCfg = null, syncT = null, dirtyRender = false;
+const itemDoc = it => ({name:it.name||"", price:+it.price||0, rate:+it.rate||0, extra:+it.extra||0, n:Math.max(1,+it.n||1)});
+function toDoc(sh,r){
+  return {partner:sh.name, name:r.name||"", days:+r.days===180?180:365, price:+r.price||0, rate:+r.rate||0, extra:+r.extra||0, ship:+r.ship||0, fee:+r.fee||0, qty:+r.qty||0, fixed:+r.fixed||0, order:+r.order||0,
+    items:(r.items||[]).map(itemDoc),
+    plans:(r.plans||[]).map(p=>({k:p.k, label:p.label||"", desc:p.desc||"", days:+p.days===180?180:365, price:+p.price||0, rate:+p.rate||0, extra:+p.extra||0, ship:+p.ship||0, fee:+p.fee||0, qty:+p.qty||0, fixed:+p.fixed||0, items:(p.items||[]).map(itemDoc)})),
+    adoptedK:((r.plans||[]).find(p=>p.id===r.adopted)||{}).k||null};
+}
+function fromDoc(id,d){
+  let rid=rowIdByDoc.get(id); if(!rid){ rid=uid++; rowIdByDoc.set(id,rid); }
+  const plans=(Array.isArray(d.plans)?d.plans:[]).map((p,i)=>{ const k=p.k||`${id}-${i}`; let pid=planIdByKey.get(k); if(!pid){ pid=uid++; planIdByKey.set(k,pid); } return {...p,k,id:pid,items:cloneItems(p.items)}; });
+  const ad=plans.find(p=>p.k===d.adoptedK);
+  return {id:rid, docId:id, name:String(d.name||""), days:+d.days===180?180:365, price:+d.price||0, rate:+d.rate||0, extra:+d.extra||0, ship:+d.ship||0, fee:+d.fee||0, qty:+d.qty||0, fixed:+d.fixed||0, order:+d.order||0,
+    items:cloneItems(Array.isArray(d.items)?d.items:[]), plans, adopted:ad?ad.id:null};
+}
+function docsOf(snap){
+  const arr = Array.isArray(snap)? snap : (snap && (snap.docs||snap.documents||snap.items||snap.results)) || [];
+  return arr.map(d=>({id: d.id ?? d.docId ?? (d.ref&&d.ref.id) ?? String(d.path||"").split("/").pop(), data: typeof d.data==="function"? d.data() : (d.data ?? d.fields ?? d)})).filter(x=>x.id && x.data);
+}
+function applySnapshot(docs){
+  const local=new Map(); state.sheets.forEach(sh=>sh.rows.forEach(r=>local.set(r.docId,{sh,r})));
+  const out=[], seen=new Set();
+  docs.forEach(({id,data})=>{
+    if(pendingDel.has(id)) return; seen.add(id);
+    const L=local.get(id), remoteRow=fromDoc(id,data), partner=String(data.partner||"미분류");
+    const remoteJ=JSON.stringify(toDoc({name:partner},remoteRow));
+    const dirty = L && ((inflight.get(id)||0)>0 || (synced.has(id) && JSON.stringify(toDoc(L.sh,L.r))!==synced.get(id)));
+    if(dirty) out.push({partner:L.sh.name,row:L.r}); else { out.push({partner,row:remoteRow}); synced.set(id,remoteJ); }
+  });
+  local.forEach(({sh,r},id)=>{ if(!seen.has(id) && !pendingDel.has(id) && (!synced.has(id) || (inflight.get(id)||0)>0)) out.push({partner:sh.name,row:r}); });   // 아직 저장 전인 새 상품
+  [...synced.keys()].forEach(id=>{ if(!seen.has(id) && !(inflight.get(id)>0)) synced.delete(id); });
+  const groups=new Map();
+  out.sort((a,b)=>a.row.order-b.row.order).forEach(({partner,row})=>{ const k=partner.trim().toLowerCase(); if(!groups.has(k)) groups.set(k,{name:partner,rows:[]}); groups.get(k).rows.push(row); });
+  state.sheets=[...groups.values()].map(g=>({id:sheetIdFor(g.name),name:g.name,rows:g.rows}));
+  rerenderSoon();
+}
+function applyConfig(d){ if(!d || (inflight.get("cfg")||0)>0) return; const nx={target:+d.target||0,loss:+d.loss||0,fee:+d.fee||0}; syncedCfg=JSON.stringify(nx); if(JSON.stringify(state.set)!==syncedCfg){ state.set=nx; rerenderSoon(); } }
+function writeDoc(id,fn){
+  inflight.set(id,(inflight.get(id)||0)+1);
+  const p=(chains.get(id)||Promise.resolve()).then(fn).catch(err=>{ console.warn(err); toast("공용 저장에 실패했습니다. 인터넷 연결과 권한을 확인하세요"); })
+    .finally(()=>inflight.set(id,(inflight.get(id)||1)-1));
+  chains.set(id,p); return p;
+}
+function scheduleSync(){ if(!shared.on||!shared.ready) return; clearTimeout(syncT); syncT=setTimeout(syncNow,500); }
+function syncNow(){
+  if(!shared.on||!shared.ready) return;
+  const seen=new Set();
+  state.sheets.forEach(sh=>sh.rows.forEach(r=>{ seen.add(r.docId); const j=JSON.stringify(toDoc(sh,r));
+    if(synced.get(r.docId)!==j){ synced.set(r.docId,j); const data=JSON.parse(j); writeDoc(r.docId,()=>shared.db.doc("products/"+r.docId).set(data)); } }));
+  [...synced.keys()].forEach(id=>{ if(!seen.has(id)){ synced.delete(id); pendingDel.add(id); writeDoc(id,()=>shared.db.doc("products/"+id).delete()).finally(()=>pendingDel.delete(id)); } });
+  const cj=JSON.stringify({target:+state.set.target||0,loss:+state.set.loss||0,fee:+state.set.fee||0});
+  if(cj!==syncedCfg){ syncedCfg=cj; writeDoc("cfg",()=>shared.db.doc("config/main").set(JSON.parse(cj))); }
+}
+function rerenderSoon(){
+  const a=document.activeElement, v=document.getElementById("view");
+  if(a && (a.tagName==="INPUT"||a.tagName==="SELECT") && v.contains(a)){ dirtyRender=true; return; }
+  const y=window.scrollY; render(); window.scrollTo(0,y); updateMigrate();
+}
+document.addEventListener("focusout",()=>{ if(!dirtyRender) return; setTimeout(()=>{ const a=document.activeElement; if(!(a&&(a.tagName==="INPUT"||a.tagName==="SELECT")&&document.getElementById("view").contains(a))){ dirtyRender=false; const y=window.scrollY; render(); window.scrollTo(0,y); } },0); });
+function setSync(mode,msg){ const p=document.getElementById("syncPill"); if(!p) return; p.className="sync "+mode; p.textContent=msg; }
+function subscribe(q,cb,onErr){
+  const h=snap=>{ try{ cb(docsOf(snap)); }catch(e){ console.warn(e); } };
+  try{ if(q && typeof q.onSnapshot==="function"){ q.onSnapshot(h,err=>{ console.warn(err); onErr&&onErr(err); }); return; } }catch(e){ console.warn(e); }
+  try{ if(q && typeof q.get==="function") Promise.resolve(q.get()).then(h).catch(err=>{ console.warn(err); onErr&&onErr(err); }); }catch(e){ onErr&&onErr(e); }
+}
+async function connectShared(){
+  let db=null; try{ db=await window.claude.use("db"); }catch(e){ console.warn(e); }
+  if(!db){ startLocal(); return; }
+  startShared(db);
+}
+function startShared(db){
+  shared.db=db; shared.on=true; shared.mode="shared"; setSync("wait","공용 데이터 불러오는 중…");
+  const timer=setTimeout(()=>{ if(!shared.ready) setSync("off","공용 데이터를 불러오지 못했습니다 · 새로고침해 주세요"); },10000);
+  subscribe(db.collection("products"), docs=>{ clearTimeout(timer); if(!shared.ready){ shared.ready=true; } setSync("on","공용 저장소 연결됨 · 팀 전체와 실시간 공유"); applySnapshot(docs); },
+    ()=>{ clearTimeout(timer); setSync("off","공용 데이터를 불러오지 못했습니다 · 새로고침해 주세요"); });
+  subscribe(db.collection("config"), docs=>{ const m=docs.find(d=>d.id==="main"); if(m) applyConfig(m.data); });
+}
+/* 저장 방식 고르기: ① Firebase(팀 공용, config.js 설정 시) ② Claude 아티팩트 공용 저장소 ③ 이 브라우저 */
+let connectTries=0;
+function tryConnect(){
+  const cfg=window.APP_CONFIG||{};
+  if(cfg.firebase && cfg.firebase.apiKey) { connectFirebase(cfg); return; }
+  if(window.claude && typeof window.claude.use==="function") { connectShared(); return; }
+  if(connectTries++<3) { setTimeout(tryConnect,500); return; }
+  startLocal();
+}
+function startLocal(){
+  shared.mode="local"; shared.on=false; shared.ready=true; loadLocalSheets();
+  setSync("off","이 브라우저에만 저장 중 · 팀 공유는 README 4단계(Firebase) 참고"); render();
+}
+function loadScript(src){ return new Promise((ok,no)=>{ const s=document.createElement("script"); s.src=src; s.onload=ok; s.onerror=()=>no(new Error("load failed: "+src)); document.head.appendChild(s); }); }
+async function connectFirebase(cfg){
+  setSync("wait","로그인 확인 중…");
+  const V="10.12.2", base=`https://www.gstatic.com/firebasejs/${V}/`;
+  try{ await loadScript(base+"firebase-app-compat.js"); await loadScript(base+"firebase-auth-compat.js"); await loadScript(base+"firebase-firestore-compat.js"); }
+  catch(e){ console.warn(e); setSync("off","Firebase를 불러오지 못했습니다 · 인터넷 연결을 확인하세요"); shared.ready=true; render(); return; }
+  if(!firebase.apps.length) firebase.initializeApp(cfg.firebase);
+  const auth=firebase.auth(), dom=String(cfg.allowedDomain||"").trim().toLowerCase();
+  const btnIn=document.getElementById("btnLogin"), btnOut=document.getElementById("btnLogout"), lbl=document.getElementById("userLabel");
+  btnIn.onclick=()=>{ const p=new firebase.auth.GoogleAuthProvider(); if(dom) p.setCustomParameters({hd:dom}); auth.signInWithPopup(p).catch(err=>{ console.warn(err); toast("로그인하지 못했습니다. 팝업 차단을 풀고 다시 시도하세요"); }); };
+  btnOut.onclick=()=>auth.signOut().then(()=>location.reload());
+  auth.onAuthStateChanged(user=>{
+    if(!user){ btnIn.hidden=false; btnOut.hidden=true; lbl.textContent=""; setSync("off","로그인하면 팀 공용 데이터가 보입니다"); shared.ready=true; render(); return; }
+    const email=String(user.email||"").toLowerCase();
+    if(dom && !email.endsWith("@"+dom)){ toast(`${dom} 계정으로만 이용할 수 있습니다`); auth.signOut(); return; }
+    btnIn.hidden=true; btnOut.hidden=false; lbl.textContent=user.email||"";
+    if(!shared.on) startShared(firebase.firestore());
+  });
+}
+function downloadJSON(name,obj){
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([JSON.stringify(obj,null,2)],{type:"application/json"})); a.download=name;
+  document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },500);
+}
+/* 공용 전환 전, 이 브라우저에만 있던 작업 올리기 */
+function oldWork(){
+  try{ if(localStorage.getItem(OLD_KEY+"-migrated")) return null; const s=JSON.parse(localStorage.getItem(OLD_KEY)); if(!s||!Array.isArray(s.sheets)) return null;
+    let plans=0, rows=0; s.sheets.forEach(sh=>sh.rows.forEach(r=>{ const hit=findSheet(sh.name), ex=hit&&hit.rows.find(x=>x.name.trim()===String(r.name).trim()); if(!ex) rows++; plans+=(r.plans||[]).length; }));
+    return (plans||rows)? {s,plans,rows} : null; }catch(e){ return null; }
+}
+function updateMigrate(){
+  const b=document.getElementById("migrate"); if(!b) return;
+  const w=shared.on&&shared.ready? oldWork() : null;
+  if(!w){ b.hidden=true; return; }
+  b.hidden=false; document.getElementById("migrateMsg").textContent=`이 브라우저에 공용 전환 전 작업이 남아 있습니다 (새 상품 ${w.rows}개, 비교안 ${w.plans}개). 팀 공용으로 올릴까요?`;
+}
+function migrateOld(){
+  const w=oldWork(); if(!w) return;
+  w.s.sheets.forEach(sh=>sh.rows.forEach(r=>{
+    let s=findSheet(sh.name); if(!s){ s=mkSheet({name:sh.name,rows:[]}); state.sheets.push(s); }
+    let ex=s.rows.find(x=>x.name.trim()===String(r.name).trim());
+    if(!ex){ ex=mkRow({name:r.name,price:r.price,rate:r.rate,extra:r.extra,ship:r.ship,fee:r.fee,qty:r.qty,fixed:r.fixed||0,items:r.items||[]}); s.rows.push(ex); }
+    (r.plans||[]).forEach(p=>{ const {id,k,...rest}=p; ex.plans.push({...rest,k:newKey(),id:uid++,items:cloneItems(p.items)}); });
+  }));
+  try{ localStorage.setItem(OLD_KEY+"-migrated","1"); }catch(e){}
+  save(); render(); updateMigrate(); toast("이전 작업을 팀 공용으로 올렸습니다");
+}
+
+/* ---------- 계산 ---------- */
+const won = n => isFinite(n) ? Math.round(n).toLocaleString("ko-KR") : "–";
+const pct = (n,d=1) => (isFinite(n)? n.toFixed(d) : "–")+"%";
+const pv = n => +(+n).toFixed(2);
+const parseNum = v => { const n=parseFloat(String(v).replace(/[^0-9.\-]/g,"")); return isFinite(n)?n:0; };
+function esc(s){ return String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function fmtShort(n){ const a=Math.abs(n), sg=n<0?"−":""; if(a>=1e8) return sg+(a/1e8).toFixed(2).replace(/\.?0+$/,"")+"억"; if(a>=1e4) return sg+Math.round(a/1e4).toLocaleString("ko-KR")+"만"; return sg+Math.round(a); }
+const tgt = () => +state.set.target||0;
+function status(m,t=tgt()){ return m<0?"bad":m<t?"warn":"good"; }
+const compName = (it,i) => (it.name||"").trim() || `구성품 ${i+1}`;
+
+function calc(r, over={}){
+  const x={...r,...over};
+  const loss=(over._loss ?? +state.set.loss) || 0, feeR=(over._fee ?? +state.set.fee) || 0, t=(over._target ?? tgt())/100;
+  const k=(1-loss/100)*(1-feeR/100);
+  const mPrice=+x.price||0, rate=+x.rate||0, extra=+x.extra||0, ship=+x.ship||0, fee=+x.fee||0, qty=+x.qty||0;
+  const mRateAmt=Math.round(mPrice*rate/100), mAmt=mRateAmt+extra, mSupply=mPrice-mAmt;
+  const comps=(x.items||[]).map((it,i)=>{ const n=Math.max(1,Math.round(+it.n||1)), p=+it.price||0, r2=+it.rate||0, ex=+it.extra||0, ra=Math.round(p*r2/100), a=ra+ex, s=p-a;
+    return {i,name:compName(it,i),n,p,r:r2,ex,ra,a,s,tp:p*n,ta:a*n,ts:s*n}; }).filter(c=>c.p>0);
+  const compPrice=comps.reduce((a,c)=>a+c.tp,0), compAmt=comps.reduce((a,c)=>a+c.ta,0), compSupply=comps.reduce((a,c)=>a+c.ts,0);
+  const price=mPrice+compPrice, amt=mAmt+compAmt, supply=price-amt, total=supply+ship;
+  const days=(+x.days===180)?180:365;
+  const unitGross=fee*days, unitDeduct=Math.round(unitGross*(1-k)), unitNet=unitGross-unitDeduct, unitMargin=unitNet-total;
+  const mrate=unitGross? unitMargin/unitGross*100 : 0, markup=total? unitMargin/total*100 : 0;
+  const gross=unitGross*qty, deduct=unitDeduct*qty, purchase=total*qty, margin=unitMargin*qty;
+  const be = k>0? Math.ceil(total/(days*k)) : Infinity;
+  const beAmt = price+ship-unitNet;                    // 손익분기에 필요한 총 할인액
+  const kt=k-t, needAmt = price+ship-unitGross*kt;      // 목표 마진율에 필요한 총 할인액
+  const minRate = mPrice? Math.max(0,(beAmt-extra-compAmt)/mPrice*100) : 0;
+  const needRate = mPrice? Math.max(0,(needAmt-extra-compAmt)/mPrice*100) : 0;
+  const needExtra = Math.max(0, Math.ceil(needAmt-mRateAmt-compAmt));
+  const recFee = kt>0? Math.ceil(total/(days*kt)) : Infinity;
+  const payback = fee&&k? Math.ceil(total/(fee*k)) : Infinity;
+  comps.forEach(c=>{ const others=amt-c.ta;
+    c.beRate = c.p? Math.max(0,((beAmt-others)/c.n-c.ex)/c.p*100) : 0;
+    c.tRate  = c.p? Math.max(0,((needAmt-others)/c.n-c.ex)/c.p*100) : 0;
+    c.per1 = Math.round(c.p*c.n/100); });
+  return {days,price,mPrice,rate,extra,ship,fee,qty,k,mRateAmt,mAmt,mSupply,comps,compPrice,compAmt,compSupply,isSet:comps.length>0,amt,supply,total,unitGross,unitDeduct,unitNet,unitMargin,mrate,markup,gross,deduct,purchase,margin,be,minRate,payback,recFee,needRate,needExtra,per1:Math.round(mPrice/100)};
+}
+/* 인상 검토: 기준 마진을 지키는 일리스료 */
+const feeKeepRate = (c, mr) => (c.k - mr/100)>0 ? Math.ceil(c.total/(c.days*(c.k-mr/100))) : Infinity;
+const feeKeepUnit = (c, um) => c.k>0 ? Math.ceil((c.total+um)/(c.days*c.k)) : Infinity;
+const daysTxt = d => (+d===180? "180일" : "365일");
+function bepOf(c, fixed){
+  fixed=+fixed||0;
+  const bepQty = c.unitMargin>0 ? Math.max(1, Math.ceil(fixed/c.unitMargin)) : Infinity;
+  const net = c.margin - fixed, daily = c.fee*c.k*c.qty;
+  const bepDay = daily>0 ? Math.ceil((c.purchase+fixed)/daily) : Infinity;
+  const invest = c.purchase+fixed, roi = invest? net/invest*100 : 0;
+  const safety = c.qty&&isFinite(bepQty)? (c.qty-bepQty)/c.qty*100 : -Infinity;
+  return {fixed,bepQty,net,bepDay,roi,invest,safety};
+}
+const withCompRate = (f,idx,rate) => ({items:(f.items||[]).map((it,i)=> i===idx? {...it,rate} : it)});
+function sheetTotals(sh){
+  const t={gross:0,deduct:0,purchase:0,margin:0,qty:0,alert:0,n:sh.rows.length};
+  sh.rows.forEach(r=>{ const c=calc(r); t.gross+=c.gross; t.deduct+=c.deduct; t.purchase+=c.purchase; t.margin+=c.margin; t.qty+=c.qty; if(status(c.mrate)!=="good") t.alert++; });
+  t.mr=t.gross? t.margin/t.gross*100:0; t.markup=t.purchase? t.margin/t.purchase*100:0; return t;
+}
+const findSheet = n => state.sheets.find(s=>s.name.trim().toLowerCase()===String(n).trim().toLowerCase());
+
+/* ---------- 손익분기 수량 차트 ---------- */
+function nice(x){ if(x<=0) return 1; const p=Math.pow(10,Math.floor(Math.log10(x))), n=x/p; return (n<=1?1:n<=2?2:n<=5?5:10)*p; }
+function qtyChart(c, b){
+  const W=640,H=260,pl=58,pr=20,pt=24,pb=36;
+  const X=nice(Math.max(c.qty||0, isFinite(b.bepQty)? b.bepQty:0, 10)*1.4);
+  const f=n=>n*c.unitMargin-b.fixed, y1=f(X);
+  let ymin=Math.min(-b.fixed,0,y1), ymax=Math.max(0,y1); if(ymax-ymin<1) ymax=ymin+1;
+  const st=nice((ymax-ymin)/4); ymin=Math.floor(ymin/st)*st; ymax=Math.ceil(ymax/st)*st;
+  const x=n=>pl+n/X*(W-pl-pr), y=v=>pt+(ymax-v)/(ymax-ymin)*(H-pt-pb), y0=y(0);
+  let g=""; for(let v=ymin; v<=ymax+1e-6; v+=st) g+=`<line x1="${pl}" x2="${W-pr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${pl-6}" y="${y(v)+4}" text-anchor="end">${fmtShort(v)}</text>`;
+  for(let i=0;i<=5;i++){ const n=Math.round(X*i/5); g+=`<text x="${x(n)}" y="${H-14}" text-anchor="middle">${n}대</text>`; }
+  const id="q"+Math.random().toString(36).slice(2,7);
+  const area=`M${x(0)},${y0} L${x(0)},${y(f(0))} L${x(X)},${y(y1)} L${x(X)},${y0} Z`;
+  let mk="";
+  if(isFinite(b.bepQty) && b.bepQty<=X){ const bx=x(b.bepQty), an=bx>W-170?"end":"start";
+    mk+=`<line x1="${bx}" x2="${bx}" y1="${pt}" y2="${H-pb}" stroke="var(--good)" stroke-dasharray="4 3" stroke-width="1.5"/><circle cx="${bx}" cy="${y(f(b.bepQty))}" r="5" fill="var(--good)" stroke="var(--surface)" stroke-width="2"/><text class="lbl" x="${an==="end"?bx-8:bx+8}" y="${pt+10}" text-anchor="${an}" style="fill:var(--good)">손익분기 ${won(b.bepQty)}대</text>`; }
+  if(c.qty>0 && c.qty<=X){ const cx=x(c.qty), cy=y(f(c.qty)), an=cx>W-170?"end":"start";
+    mk+=`<circle cx="${cx}" cy="${cy}" r="5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/><text class="lbl" x="${an==="end"?cx-8:cx+8}" y="${cy+(f(c.qty)>=0?-10:18)}" text-anchor="${an}" style="fill:var(--accent)">예상 ${won(c.qty)}대 · ${fmtShort(f(c.qty))}원</text>`; }
+  if(!isFinite(b.bepQty)) mk+=`<text class="lbl" x="${W-pr}" y="${pt+10}" text-anchor="end" style="fill:var(--bad)">대당 마진이 0원 이하라 손익분기 불가</text>`;
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="판매수량별 누적 순이익">
+    <defs><clipPath id="${id}a"><rect x="0" y="0" width="${W}" height="${y0}"/></clipPath><clipPath id="${id}b"><rect x="0" y="${y0}" width="${W}" height="${H}"/></clipPath></defs>
+    ${g}<path d="${area}" fill="var(--good-soft)" clip-path="url(#${id}a)"/><path d="${area}" fill="var(--bad-soft)" clip-path="url(#${id}b)"/>
+    <line x1="${pl}" x2="${W-pr}" y1="${y0}" y2="${y0}" stroke="var(--fg)" stroke-width="1.2"/>
+    <line x1="${x(0)}" y1="${y(f(0))}" x2="${x(X)}" y2="${y(y1)}" stroke="var(--fg)" stroke-width="2.2"/>${mk}</svg>`;
+}
+
+/* ---------- 화면 전환 ---------- */
+function setView(v){ ui.view=v; try{ history.replaceState(null,"","#"+v); }catch(e){} render(); window.scrollTo({top:0}); }
+function render(){
+  document.getElementById("navCalc").classList.toggle("on",ui.view==="calc");
+  document.getElementById("navList").classList.toggle("on",ui.view==="list");
+  document.getElementById("navCmp").classList.toggle("on",ui.view==="cmp");
+  ui.view==="list"? renderList() : ui.view==="cmp"? renderCmp() : renderCalc();
+  save();
+}
+
+/* ================= 신규 상품 검토 ================= */
+const F = () => state.form;
+const PCT_KEYS = new Set(["rate"]);
+function fmtVal(k,v){ if(v===""||v==null) return ""; return PCT_KEYS.has(k)? pv(v) : won(v); }
+function nIn(k,unit,mode,ph,extra=""){ return `<div class="unit"><input data-k="${k}" ${extra} class="num" inputmode="${mode||"numeric"}" value="${fmtVal(k,F()[k])}" placeholder="${ph||"0"}"><span>${unit}</span></div>`; }
+function cIn(i,f,unit,mode,ph){ const it=F().items[i]; const v=it[f]; return `<div class="unit"><input data-ci="${i}" data-cf="${f}" class="num" inputmode="${mode||"numeric"}" value="${v===""||v==null?"":(f==="rate"?pv(v):won(v))}" placeholder="${ph||"0"}"><span>${unit}</span></div>`; }
+function renderCalc(){
+  const f=F(), s=state.set; f.items=f.items||[];
+  const isSet=f.items.length>0, srcRow=f.src? rowBySrc(f.src):null;
+  document.getElementById("view").innerHTML=`
+  ${guide("calc","처음이신가요? 신규 상품 검토는 이렇게 합니다 (3단계)",[
+    `<b>왼쪽에 상품 조건을 넣습니다.</b> 제휴사·상품명·소비자가·할인율·일리스료를 입력하고 리스 기간(365일/180일)을 고릅니다. 메모리카드처럼 묶어 파는 상품은 ‘구성품 추가’를 누릅니다.`,
+    `<b>오른쪽 보고서를 봅니다.</b> 맨 위 판정(진행 권고 / 조건부 진행 / 재검토 필요)과 큰 숫자 4개가 핵심입니다. 회의 중에는 보고서 위 칸에 숫자를 바로 입력해 바꿔 볼 수 있습니다.`,
+    `<b>저장합니다.</b> ‘비교안으로 저장’을 누르면 상품이 등록되고 1안이 됩니다. 조건을 바꿔 다시 누르면 2안·3안이 쌓이고, 위 ‘비교 시트’ 탭에서 나란히 비교합니다.`],TERMS)}
+  <div class="calc-grid">
+    <section class="panel" aria-label="검토 조건 입력">
+      <div class="panel-h"><h2>검토 조건 입력</h2><button id="btnClear">새로 입력</button></div>
+      <div class="example" id="exBanner" ${f.example?"":"hidden"}>지금 값은 예시입니다. 검토할 상품 조건으로 바꿔 입력하세요.</div>
+      ${srcRow?`<div class="src">등록 상품 ‘${esc(srcRow.sh.name)} · ${esc(srcRow.r.name)}’을 수정 중입니다.</div>`:""}
+      <form id="calcForm" novalidate><div class="form-grid">
+        <div class="grp">상품</div>
+        <div class="field"><label for="cPartner">제휴사</label><input id="cPartner" data-k="partner" list="plist" value="${esc(f.partner)}" placeholder="예: GoPro"><datalist id="plist">${state.sheets.map(s=>`<option value="${esc(s.name)}">`).join("")}</datalist></div>
+        <div class="field"><label for="cName">${isSet?"세트 상품명":"상품명"}</label><input id="cName" data-k="name" value="${esc(f.name)}" placeholder="예: 고프로set"></div>
+        <div class="grp">${isSet?"본품 매입 조건":"매입 조건"}</div>
+        <div class="field full"><label for="cPrice">${isSet?"본품 소비자가":"소비자가"}</label>${nIn("price","원","numeric","0",'id="cPrice"')}</div>
+        <div class="field"><label for="cRate">할인율</label>${nIn("rate","%","decimal","0",'id="cRate"')}</div>
+        <div class="field"><label for="cExtra">추가 할인금액</label>${nIn("extra","원","numeric","0",'id="cExtra"')}</div>
+        <div class="grp c">세트 구성품 ${isSet?`(${f.items.length})`:"(선택)"}</div>
+        ${f.items.map((it,i)=>`<div class="comp">
+          <div class="comp-h"><span class="tag">구성품 ${i+1}</span><input data-ci="${i}" data-cf="name" value="${esc(it.name)}" placeholder="예: 메모리카드 128GB" aria-label="구성품 ${i+1} 이름"><button type="button" class="del" data-crm="${i}" aria-label="구성품 ${i+1} 삭제">×</button></div>
+          <div class="comp-g">
+            <div class="field"><label>소비자가</label>${cIn(i,"price","원")}</div>
+            <div class="field"><label>세트당 수량</label>${cIn(i,"n","개","numeric","1")}</div>
+            <div class="field"><label>할인율</label>${cIn(i,"rate","%","decimal")}</div>
+            <div class="field"><label>추가 할인</label>${cIn(i,"extra","원")}</div>
+          </div></div>`).join("")}
+        <div class="full"><button type="button" class="add-comp" id="btnAddComp">+ 구성품 추가 (세트 상품 만들기)</button>
+          <span class="hint" style="display:block;font-size:11px;color:var(--muted);margin-top:4px">본품에 메모리카드 등을 묶어 세트로 팔 때만 추가하세요. 단품이면 비워 둡니다.</span></div>
+        <div class="field full"><label for="cShip">배송비 ${isSet?"(세트당)":""}</label>${nIn("ship","원","numeric","0",'id="cShip"')}</div>
+        <div class="grp">판매 조건</div>
+        <div class="field full"><label>리스 기간</label><div class="dayseg" role="group" aria-label="리스 기간">${[365,180].map(d=>`<button type="button" data-days="${d}" class="${(+f.days===180?180:365)===d?"on":""}" aria-pressed="${(+f.days===180?180:365)===d}">${d}일${d===365?" (기본)":""}</button>`).join("")}</div><span class="hint">판매금액 = 일리스료 × 리스 일수</span></div>
+        <div class="field"><label for="cFee">일리스료${isSet?" (세트)":""}</label>${nIn("fee","원/일","numeric","0",'id="cFee"')}</div>
+        <div class="field"><label for="cQty">예상 판매수량</label>${nIn("qty","대","numeric","100",'id="cQty"')}</div>
+        <div class="field"><label for="cFixed">고정비</label>${nIn("fixed","원","numeric","0",'id="cFixed"')}<span class="hint">판촉·광고·초기비용</span></div>
+        <div class="field"><label for="cTarget">목표 마진율</label><div class="unit"><input id="cTarget" data-s="target" class="num" inputmode="decimal" value="${s.target}"><span>%</span></div></div>
+        <details class="adv full"><summary>리스크 차감 옵션 (기본 0%)</summary>
+          <div class="form-grid">
+            <div class="field"><label for="cLoss">중도해지·미납 손실률</label><div class="unit"><input id="cLoss" data-s="loss" class="num" inputmode="decimal" value="${s.loss}"><span>%</span></div></div>
+            <div class="field"><label for="cFeeRate">수납 수수료율</label><div class="unit"><input id="cFeeRate" data-s="fee" class="num" inputmode="decimal" value="${s.fee}"><span>%</span></div></div>
+          </div></details>
+      </div>
+      <div class="form-actions"><button type="button" id="btnPlan" class="primary" title="이 상품의 비교안으로 저장합니다 (미등록이면 등록 후 저장)">비교안으로 저장</button>
+        ${srcRow?`<button type="button" id="btnUpd">등록 상품에 반영</button><button type="button" id="btnReg">새 상품으로 추가</button>`:`<button type="button" id="btnReg">등록 상품에 추가</button>`}
+        <button type="button" id="btnScen">임시 시나리오 저장</button></div>
+      ${srcRow&&srcRow.r.plans&&srcRow.r.plans.length?`<div class="plan-link"><span>이 상품의 비교안 ${srcRow.r.plans.length}개 저장됨</span><button type="button" class="link" id="btnGoCmp">비교 시트 열기 →</button></div>`:""}
+      </form>
+    </section>
+    <article class="doc" aria-label="미니 보고서">
+      <div class="meet">
+        <div class="meet-top"><span class="t">회의 중 조정 · 숫자를 바로 입력하세요</span><div class="btns"><button id="btnBase">기준안 고정</button><button id="btnReport" class="primary">보고서 텍스트 복사</button></div></div>
+        <div class="meet-in">
+          <div class="mi"><label>${isSet?"본품 할인율":"할인율"}</label><div class="unit">${`<input data-k="rate" class="num" inputmode="decimal" value="${fmtVal("rate",f.rate)}" aria-label="할인율">`}<span>%</span></div></div>
+          <div class="mi"><label>${isSet?"본품 추가할인":"추가할인"}</label><div class="unit"><input data-k="extra" class="num" inputmode="numeric" value="${fmtVal("extra",f.extra)}" aria-label="추가할인"><span>원</span></div></div>
+          ${f.items.map((it,i)=>`<div class="mi c"><label data-cl="${i}">${esc(compName(it,i))} 할인율</label><div class="unit"><input data-ci="${i}" data-cf="rate" class="num" inputmode="decimal" value="${it.rate===""||it.rate==null?"":pv(it.rate)}" aria-label="${esc(compName(it,i))} 할인율"><span>%</span></div></div>`).join("")}
+          <div class="mi"><label>일리스료</label><div class="unit"><input data-k="fee" class="num" inputmode="numeric" value="${fmtVal("fee",f.fee)}" aria-label="일리스료"><span>원</span></div></div>
+          <div class="mi"><label>판매수량</label><div class="unit"><input data-k="qty" class="num" inputmode="numeric" value="${fmtVal("qty",f.qty)}" aria-label="판매수량"><span>대</span></div></div>
+          <div class="mi"><label>고정비</label><div class="unit"><input data-k="fixed" class="num" inputmode="numeric" value="${fmtVal("fixed",f.fixed)}" aria-label="고정비"><span>원</span></div></div>
+        </div>
+      </div>
+      <div class="doc-body" id="doc"></div>
+    </article>
+  </div>
+  <details class="panel" open><summary>계산 산식 상세</summary><ol class="formula" id="formula"></ol></details>
+  <div class="grid2">
+    <section class="panel"><div class="panel-h"><h2>판매수량별 누적 순이익</h2><span class="sub">고정비 차감 후</span></div><div id="qchart"></div>
+      <div class="legend"><span><i style="background:var(--bad-soft)"></i>손실 구간</span><span><i style="background:var(--good-soft)"></i>이익 구간</span></div>
+      <div class="tbl-wrap" style="margin-top:12px"><table id="qtyTbl"></table></div></section>
+    <section class="panel"><div class="panel-h"><h2>목표 마진율별 필요 조건</h2><span class="sub">한 가지만 바꾼다면</span></div><div class="tbl-wrap"><table id="tgtTbl"></table></div>
+      <div class="panel-h" style="margin:18px 0 8px"><h2>${isSet?"본품 ":""}할인율 × 일리스료 마진율</h2><span class="sub">파란 테두리 = 현재 조건</span></div><div class="tbl-wrap"><table class="matrix" id="matrix"></table></div></section>
+  </div>
+  <section class="panel"><div class="panel-h"><h2>시나리오 비교</h2><span class="sub">‘시나리오로 저장’한 안을 나란히 비교합니다</span></div><div id="scen"></div></section>`;
+  updateCalc();
+}
+function syncInputs(){
+  const f=F(), a=document.activeElement;
+  document.querySelectorAll("#view [data-k]").forEach(el=>{ if(el===a) return; const k=el.dataset.k; el.value = (k==="partner"||k==="name")? (f[k]??"") : fmtVal(k,f[k]); });
+  document.querySelectorAll("#view [data-ci]").forEach(el=>{ if(el===a) return; const it=f.items[+el.dataset.ci]; if(!it) return; const cf=el.dataset.cf, v=it[cf];
+    el.value = cf==="name"? (v??"") : (v===""||v==null? "" : cf==="rate"? pv(v) : won(v)); });
+  document.querySelectorAll("#view [data-cl]").forEach(el=>{ const i=+el.dataset.cl, it=f.items[i]; if(it) el.textContent=compName(it,i)+" 할인율"; });
+}
+function dTxt(curV, baseV, unit){
+  if(baseV==null||!isFinite(curV)||!isFinite(baseV)) return "";
+  const diff=curV-baseV; if(Math.abs(diff)<(unit==="%p"?0.005:0.5)) return `<div class="dl" style="opacity:.7">기준안과 동일</div>`;
+  const up=diff>0; return `<div class="dl ${up?"up":"down"}">기준안 대비 ${up?"▲":"▼"} ${unit==="%p"? Math.abs(diff).toFixed(2)+"%p" : unit==="대"? won(Math.abs(diff))+"대" : fmtShort(Math.abs(diff))+"원"}</div>`;
+}
+function verdictOf(c,b){
+  const t=tgt();
+  if(c.unitMargin<=0) return {cls:"bad",label:"재검토 필요",sub:"현 조건 대당 손실"};
+  if(c.qty<b.bepQty) return {cls:"warn",label:"조건부 진행",sub:"판매목표 상향 필요"};
+  if(c.mrate<t) return {cls:"warn",label:"조건부 진행",sub:`목표 마진율 ${t}% 미달`};
+  return {cls:"good",label:"진행 권고",sub:`목표 ${t}% 달성 · 손익분기 확보`};
+}
+function stressRows(f,c,b){
+  const S=[["현재 조건",{}],["일리스료 10% 인하",{fee:Math.round(c.fee*0.9)}],[c.isSet?"본품 할인율 5%p 축소":"할인율 5%p 축소",{rate:Math.max(0,c.rate-5)}]];
+  if(c.isSet) S.push(["구성품 할인율 5%p 축소",{items:f.items.map(it=>({...it,rate:Math.max(0,(+it.rate||0)-5)}))}]);
+  S.push(["판매량 30% 감소",{qty:Math.round(c.qty*0.7)}],["중도해지 손실 5%p 증가",{_loss:(+state.set.loss||0)+5}]);
+  return S.map(([l,o])=>{ const cc=calc(f,o), bb=bepOf(cc,b.fixed); return {l,cc,bb,cur:!Object.keys(o).length}; });
+}
+function setAnalysis(f,c,b){
+  if(!c.isSet) return {html:"",text:[],recs:[]};
+  const t=tgt(), single=calc(f,{items:[]});
+  const keepFee = (c.k-single.mrate/100)>0 ? Math.ceil(c.total/(c.days*(c.k-single.mrate/100))) : Infinity;
+  const addCost = c.total-(single.total);
+  const rows=[{name:`${f.name||"본품"} (본품)`,n:1,p:c.mPrice,disc:`${pv(c.rate)}%${c.extra?` + ${won(c.extra)}`:""}`,s:c.mSupply,per1:c.per1,be:c.minRate,tr:c.needRate,cp:false},
+    ...c.comps.map(x=>({name:x.name,n:x.n,p:x.tp,disc:`${pv(x.r)}%${x.ex?` + ${won(x.ex)}`:""}`,s:x.ts,per1:x.per1,be:x.beRate,tr:x.tRate,cp:true}))];
+  const supSum=c.supply||1;
+  const comp=c.comps[Math.min(ui.comp,c.comps.length-1)]||c.comps[0], ci=comp.i;
+  const rates=[...new Set([comp.r, comp.r-5, comp.r-10, comp.r-15, 0].map(v=>pv(Math.max(0,v))))].sort((a,b)=>b-a);
+  const scen=rates.map(r=>{ const cc=calc(f,withCompRate(f,ci,r)), bb=bepOf(cc,b.fixed); return {r,cc,bb}; });
+  const drop10=calc(f,withCompRate(f,ci,Math.max(0,comp.r-10)));
+  const html=`
+    <div class="rt-wrap"><table class="rt"><thead><tr><th>구성</th><th class="n">수량</th><th class="n">소비자가</th><th class="n">할인</th><th class="n">매입원가</th><th class="n">원가 비중</th><th class="n">할인 1%p 줄면</th><th class="n">손익분기 할인율</th><th class="n">목표 ${t}% 할인율</th></tr></thead><tbody>
+      ${rows.map(r=>`<tr class="${r.cp?"cp":""}"><td>${esc(r.name)}</td><td class="n">${r.n}</td><td class="n">${won(r.p)}</td><td class="n">${r.disc}</td><td class="n">${won(r.s)}</td><td class="n">${pct(r.s/supSum*100,0)}</td><td class="n down">−${won(r.per1)}원</td><td class="n">${pct(r.be,1)}</td><td class="n">${pct(r.tr,1)}</td></tr>`).join("")}
+      <tr class="em"><td>세트 합계${c.ship?` (+배송비 ${won(c.ship)})`:""}</td><td></td><td class="n">${won(c.price)}</td><td class="n">${won(c.amt)}</td><td class="n">${won(c.total)}</td><td class="n">100%</td><td></td><td></td><td></td></tr>
+    </tbody></table></div>
+    <div class="callout c">본품만 같은 일리스료(${won(c.fee)}원)로 팔면 마진율 <b>${pct(single.mrate)}</b>, 세트로 묶으면 <b>${pct(c.mrate)}</b>입니다.
+      구성품으로 매입원가가 <b>${won(addCost)}원</b> 늘었으므로, 본품 단독 마진율을 유지하려면 세트 일리스료를 <mark>${isFinite(keepFee)?won(keepFee)+"원":"–"}</mark>${isFinite(keepFee)?`(현재 대비 ${keepFee>=c.fee?"+":"−"}${won(Math.abs(keepFee-c.fee))}원)`:""}로 잡아야 합니다.</div>
+    ${c.comps.length>1?`<div class="seg" role="group" aria-label="분석할 구성품">${c.comps.map((x,j)=>`<button data-comp="${j}" class="${x===comp?"on":""}">${esc(x.name)}</button>`).join("")}</div>`:`<div style="height:12px"></div>`}
+    <div class="rt-wrap"><table class="rt"><thead><tr><th>${esc(comp.name)} 할인율</th><th class="n">${esc(comp.name)} 매입원가</th><th class="n">세트 대당 마진</th><th class="n">세트 마진율</th><th class="n">손익분기 수량</th><th class="n">순이익 (${won(c.qty)}대)</th><th>판정</th></tr></thead><tbody>
+      ${scen.map(({r,cc,bb})=>{ const x=cc.comps.find(z=>z.i===ci), st=cc.unitMargin<=0||bb.net<0?"bad":cc.mrate<t?"warn":"good", cur=r===pv(comp.r);
+        return `<tr class="${cur?"em":""}"><td>${r}%${cur?" (현재)":r===0?" (할인 없음)":""}</td><td class="n">${won(x?x.ts:0)}</td><td class="n">${won(cc.unitMargin)}</td><td class="n">${pct(cc.mrate)}</td><td class="n">${isFinite(bb.bepQty)?won(bb.bepQty)+"대":"불가"}</td><td class="n ${bb.net<0?"down":""}">${won(bb.net)}</td><td><span class="chip ${st}">${st==="good"?"안전":st==="warn"?"주의":"손실"}</span></td></tr>`; }).join("")}
+    </tbody></table></div>`;
+  const recs=[["c",`<b>${esc(comp.name)}</b> 할인이 1%p 줄 때마다 세트 대당 마진이 <b>${won(comp.per1)}원</b>씩 줄어듭니다. 할인율이 <b>${pct(comp.beRate)}</b> 아래로 내려가면 세트가 손실, <b>${pct(comp.tRate)}</b> 아래면 목표 ${t}% 미달입니다${comp.r>=comp.tRate?` (현재 ${pv(comp.r)}%로 여유 ${(comp.r-comp.tRate).toFixed(1)}%p)`:""}.`],
+    ["c",`${esc(comp.name)} 할인을 10%p 덜 받으면 세트 마진율은 ${pct(c.mrate)} → <b>${pct(drop10.mrate)}</b>, 대당 마진은 ${won(c.unitMargin)} → <b>${won(drop10.unitMargin)}원</b>이 됩니다.`]];
+  const text=[`· 세트 구성: ${rows.map(r=>`${r.name.replace(" (본품)","")} ${won(r.s)}원`).join(" + ")}${c.ship?` + 배송비 ${won(c.ship)}원`:""} = 매입원가 ${won(c.total)}원`,
+    `· 본품 단독 마진율 ${pct(single.mrate)} → 세트 ${pct(c.mrate)} / 단독 마진율 유지 일리스료 ${isFinite(keepFee)?won(keepFee)+"원":"–"}`,
+    ...c.comps.map(x=>`· ${x.name}: 할인 1%p 감소 시 대당 마진 −${won(x.per1)}원, 손익분기 할인율 ${pct(x.beRate)}, 목표 할인율 ${pct(x.tRate)} (현재 ${pv(x.r)}%)`)];
+  return {html,text,recs};
+}
+let secNo=0; const SN=()=>String(++secNo).padStart(2,"0");
+function updateCalc(){
+  const f=F(), c=calc(f), b=bepOf(c,f.fixed), t=tgt();
+  syncInputs();
+  const bb=document.getElementById("btnBase"); if(bb){ bb.textContent= state.base? "기준안 해제" : "기준안 고정"; bb.classList.toggle("on",!!state.base); }
+  const D=document.getElementById("doc");
+  if(!(c.price>0 && c.fee>0)){ D.innerHTML=`<p class="empty">소비자가와 일리스료를 입력하면<br>보고서가 바로 만들어집니다.</p>`; D.dataset.text="";
+    ["formula","qchart","qtyTbl","tgtTbl","matrix"].forEach(id=>document.getElementById(id).innerHTML=""); renderScen(); save(); return; }
+  const v=verdictOf(c,b), B=state.base? (()=>{ const bc=calc(state.base); return {c:bc,b:bepOf(bc,state.base.fixed)}; })() : null;
+  const today=new Date(), ds=`${today.getFullYear()}.${String(today.getMonth()+1).padStart(2,"0")}.${String(today.getDate()).padStart(2,"0")}`;
+  const qtyShort = c.qty < b.bepQty, SA=setAnalysis(f,c,b);
+  const setLbl = c.isSet? `세트(본품 + ${c.comps.map(x=>x.name).join(", ")})` : "";
+  let concl;
+  if(v.cls==="bad") concl=`${c.isSet?setLbl+" 기준 ":""}현 조건에서는 대당 <mark>${won(-c.unitMargin)}원 손실</mark>이 발생합니다. 일리스료를 <b>${won(c.be)}원 이상</b>으로 올리거나 ${c.isSet?"본품 ":""}할인율을 <b>${pct(c.minRate)} 이상</b> 확보해야 손익분기에 도달합니다.`;
+  else if(qtyShort) concl=`대당 <b>${won(c.unitMargin)}원</b>(마진율 ${pct(c.mrate)})이 남지만, 고정비 ${fmtShort(b.fixed)}원을 회수하려면 <mark>최소 ${won(b.bepQty)}대</mark>를 팔아야 합니다. 예상 ${won(c.qty)}대 대비 <b>${won(b.bepQty-c.qty)}대 추가</b> 판매 계획이 필요합니다.`;
+  else if(c.mrate<t) concl=`흑자 구조이며 ${won(b.bepQty)}대부터 이익이 나지만, 마진율 ${pct(c.mrate)}로 목표 ${t}%에 <b>${(t-c.mrate).toFixed(1)}%p</b> 못 미칩니다. <mark>일리스료 ${won(c.recFee)}원</mark> 또는 <mark>${c.isSet?"본품 ":""}할인율 ${pct(c.needRate)}</mark> 확보 시 목표를 달성합니다.`;
+  else concl=`${c.isSet?setLbl+"로 ":""}대당 <mark>${won(c.unitMargin)}원</mark>의 마진(마진율 <b>${pct(c.mrate)}</b>)으로 목표 ${t}%를 달성합니다. <b>${won(b.bepQty)}대</b>만 팔면 고정비를 회수하고, 예상 ${won(c.qty)}대 판매 시 순이익 <mark>${fmtShort(b.net)}원</mark>이 예상되어 <b>진행을 권고</b>합니다.`;
+  // 수익 구조
+  const scale=Math.max(c.unitGross, c.total+c.unitDeduct, 1), W=v=>Math.max(0,v/scale*100);
+  const mainCost=c.mSupply, compCost=c.compSupply, shipW=c.ship;
+  const wf=`<div class="wf">
+    <div class="row"><span>대당 판매금액</span><div class="track"><div class="bar" style="left:0;width:${W(c.unitGross)}%;background:var(--accent-soft);border:1px solid var(--accent)"></div></div><span class="amt">${won(c.unitGross)}원</span></div>
+    <div class="row"><span>매입원가</span><div class="track"><div class="bar" style="left:0;width:${W(mainCost)}%;background:var(--buy)" title="본품"></div>${c.isSet?`<div class="bar" style="left:${W(mainCost)}%;width:${W(compCost)}%;background:var(--comp)" title="구성품"></div>`:""}${shipW?`<div class="bar" style="left:${W(mainCost+compCost)}%;width:${W(shipW)}%;background:var(--line-2)" title="배송비"></div>`:""}</div><span class="amt">−${won(c.total)}원</span></div>
+    ${c.unitDeduct? `<div class="row"><span>손실·수수료</span><div class="track"><div class="bar" style="left:${W(c.total)}%;width:${W(c.unitDeduct)}%;background:var(--warn)"></div></div><span class="amt">−${won(c.unitDeduct)}원</span></div>`:""}
+    <div class="row"><b>대당 마진</b><div class="track"><div class="bar" style="left:${c.unitMargin>=0?W(c.total+c.unitDeduct):W(c.unitGross)}%;width:${W(Math.abs(c.unitMargin))}%;background:${c.unitMargin>=0?"var(--good)":"var(--bad)"}"></div></div><span class="amt ${c.unitMargin<0?"down":"up"}">${won(c.unitMargin)}원</span></div>
+  </div>${c.isSet?`<div class="legend"><span><i style="background:var(--buy)"></i>본품 ${won(mainCost)}</span><span><i style="background:var(--comp)"></i>구성품 ${won(compCost)}</span>${shipW?`<span><i style="background:var(--line-2)"></i>배송비 ${won(shipW)}</span>`:""}</div>`:""}`;
+  const chain = c.isSet? `<div class="chain">
+      <div class="c"><div class="l">본품 공급가 (${pv(c.rate)}%${c.extra?` + ${fmtShort(c.extra)}`:""})</div><div class="v">${won(c.mSupply)}</div></div>
+      ${c.comps.map(x=>`<span class="op">+</span><div class="c cp"><div class="l">${esc(x.name)}${x.n>1?` ×${x.n}`:""} (${pv(x.r)}%)</div><div class="v">${won(x.ts)}</div></div>`).join("")}
+      <span class="op">+</span><div class="c"><div class="l">배송비</div><div class="v">${won(c.ship)}</div></div><span class="op">=</span>
+      <div class="c res"><div class="l">세트 매입원가</div><div class="v">${won(c.total)}원</div></div>
+      <span class="brk"></span>
+      <div class="c"><div class="l">세트 일리스료 × ${c.days}일</div><div class="v">${won(c.fee)} × ${c.days}</div></div><span class="op">=</span>
+      <div class="c res"><div class="l">대당 판매금액</div><div class="v">${won(c.unitGross)}원</div></div></div>`
+    : `<div class="chain">
+      <div class="c"><div class="l">소비자가</div><div class="v">${won(c.price)}</div></div><span class="op">−</span>
+      <div class="c"><div class="l">제휴 할인 ${pv(c.rate)}%${c.extra?` + ${fmtShort(c.extra)}원`:""}</div><div class="v">${won(c.amt)}</div></div><span class="op">+</span>
+      <div class="c"><div class="l">배송비</div><div class="v">${won(c.ship)}</div></div><span class="op">=</span>
+      <div class="c res"><div class="l">대당 매입원가</div><div class="v">${won(c.total)}원</div></div>
+      <span class="brk"></span>
+      <div class="c"><div class="l">일리스료 × ${c.days}일</div><div class="v">${won(c.fee)} × ${c.days}</div></div><span class="op">=</span>
+      <div class="c res"><div class="l">대당 판매금액</div><div class="v">${won(c.unitGross)}원</div></div></div>`;
+  // 사업 효과
+  const mx=Math.max(c.qty, isFinite(b.bepQty)?b.bepQty:0, 1)*1.15, P=q=>Math.min(100,q/mx*100);
+  const bepbar = isFinite(b.bepQty)? `<div class="bepbar"><div class="track"><div class="fill" style="width:${P(c.qty)}%;background:${qtyShort?"var(--warn)":"var(--good)"}"></div><div class="mk" style="left:${P(b.bepQty)}%"></div></div>
+    <div class="lbls"><span style="left:${Math.max(8,Math.min(92,P(b.bepQty)))}%">손익분기 ${won(b.bepQty)}대</span>${Math.abs(P(c.qty)-P(b.bepQty))>14?`<span style="left:${Math.max(8,Math.min(92,P(c.qty)))}%;color:${qtyShort?"var(--warn)":"var(--good)"}">예상 ${won(c.qty)}대</span>`:""}</div></div>` : "";
+  const biz=`<div class="rt-wrap"><table class="rt"><thead><tr><th>항목 (예상 ${won(c.qty)}대 · ${c.days}일)</th><th class="n">금액</th><th>설명</th></tr></thead><tbody>
+    <tr><td>판매금액</td><td class="n">${won(c.gross)}원</td><td><span class="note">대당 ${won(c.unitGross)}원 × ${won(c.qty)}대</span></td></tr>
+    <tr><td>매입가액</td><td class="n">${won(c.purchase)}원</td><td><span class="note">대당 ${won(c.total)}원 × ${won(c.qty)}대${c.isSet?` (구성품 ${won(c.compSupply*c.qty)}원 포함)`:""}</span></td></tr>
+    ${c.deduct?`<tr><td>손실·수수료</td><td class="n">${won(c.deduct)}원</td><td><span class="note">판매금액의 ${pv((1-c.k)*100)}%</span></td></tr>`:""}
+    <tr><td>마진가액</td><td class="n"><b>${won(c.margin)}원</b></td><td><span class="note">마진율 ${pct(c.mrate,2)} · 매입 대비 ${pct(c.markup,1)}</span></td></tr>
+    <tr><td>고정비</td><td class="n">${won(b.fixed)}원</td><td><span class="note">판촉·광고·초기비용</span></td></tr>
+    <tr class="em"><td>순이익</td><td class="n ${b.net<0?"down":""}">${won(b.net)}원</td><td><span class="note">ROI ${pct(b.roi,1)} (순이익 ÷ 투입 ${fmtShort(b.invest)}원)</span></td></tr>
+    <tr><td>투입금 회수 시점</td><td class="n">${isFinite(b.bepDay)? (b.bepDay<=c.days? `D+${won(b.bepDay)}`:`${c.days}일 내 미회수`):"–"}</td><td><span class="note">${isFinite(b.bepDay)&&b.bepDay<=c.days? `계약기간의 ${Math.round(b.bepDay/c.days*100)}% 시점, 이후 ${c.days-b.bepDay}일은 이익 구간`:"전량 동시 출고 가정"}</span></td></tr>
+  </tbody></table></div>${bepbar}`;
+  const SR=stressRows(f,c,b);
+  const risk=`<div class="rt-wrap"><table class="rt"><thead><tr><th>시나리오</th><th class="n">마진율</th><th class="n">대당 마진</th><th class="n">손익분기</th><th class="n">순이익</th><th>판정</th></tr></thead><tbody>
+    ${SR.map(({l,cc,bb,cur})=>{ const st= cc.unitMargin<=0||bb.net<0?"bad": cc.mrate<t?"warn":"good";
+      return `<tr class="${cur?"em":""}"><td>${l}</td><td class="n">${pct(cc.mrate)}</td><td class="n">${won(cc.unitMargin)}</td><td class="n">${isFinite(bb.bepQty)?won(bb.bepQty)+"대":"불가"}</td><td class="n ${bb.net<0?"down":""}">${fmtShort(bb.net)}원</td><td><span class="chip ${st}">${st==="good"?"안전":st==="warn"?"주의":"손실"}</span></td></tr>`; }).join("")}
+  </tbody></table></div>`;
+  const worst=SR.slice(1).filter(x=>x.bb.net<0).map(x=>x.l);
+  const bounds=`<div class="bounds">
+    <div class="bd"><div class="l">일리스료${c.isSet?" (세트)":""}</div>
+      <div class="ln"><span>손익분기 (하한)</span><b class="down">${won(c.be)}원</b></div>
+      <div class="ln"><span>목표 ${t}% 달성</span><b>${isFinite(c.recFee)?won(c.recFee)+"원":"불가"}</b></div>
+      <div class="ln cur"><span>현재</span><b>${won(c.fee)}원 <span class="chip ${c.fee>=c.recFee?"good":c.fee>=c.be?"warn":"bad"}">${c.fee>=c.be?`하한 +${won(c.fee-c.be)}`:`부족 ${won(c.be-c.fee)}`}</span></b></div></div>
+    <div class="bd"><div class="l">${c.isSet?"본품 ":"제휴 "}할인율${c.extra||c.isSet?" (다른 할인 유지)":""}</div>
+      <div class="ln"><span>손익분기 (하한)</span><b class="down">${pct(c.minRate,2)}</b></div>
+      <div class="ln"><span>목표 ${t}% 달성</span><b>${pct(c.needRate,2)}</b></div>
+      <div class="ln cur"><span>현재</span><b>${pct(c.rate,2)} <span class="chip ${c.rate>=c.needRate?"good":c.rate>=c.minRate?"warn":"bad"}">${c.rate>=c.minRate?`하한 +${(c.rate-c.minRate).toFixed(1)}%p`:`부족 ${(c.minRate-c.rate).toFixed(1)}%p`}</span></b></div></div>
+    <div class="bd"><div class="l">판매수량</div>
+      <div class="ln"><span>손익분기 (최소)</span><b class="down">${isFinite(b.bepQty)?won(b.bepQty)+"대":"불가"}</b></div>
+      <div class="ln"><span>안전여유</span><b>${isFinite(b.safety)? pct(b.safety,0):"–"}</b></div>
+      <div class="ln cur"><span>예상</span><b>${won(c.qty)}대 <span class="chip ${qtyShort?"warn":"good"}">${qtyShort?`${won(b.bepQty-c.qty)}대 부족`:`+${won(c.qty-b.bepQty)}대`}</span></b></div></div>
+    ${c.comps.map(x=>`<div class="bd" style="border-color:var(--comp)"><div class="l" style="color:var(--comp)">${esc(x.name)} 할인율</div>
+      <div class="ln"><span>손익분기 (하한)</span><b class="down">${pct(x.beRate,2)}</b></div>
+      <div class="ln"><span>목표 ${t}% 달성</span><b>${pct(x.tRate,2)}</b></div>
+      <div class="ln cur"><span>현재</span><b>${pct(x.r,2)} <span class="chip ${x.r>=x.tRate?"good":x.r>=x.beRate?"warn":"bad"}">${x.r>=x.beRate?`하한 +${(x.r-x.beRate).toFixed(1)}%p`:`부족 ${(x.beRate-x.r).toFixed(1)}%p`}</span></b></div></div>`).join("")}
+  </div>`;
+  const recs=[];
+  if(v.cls==="good"){
+    recs.push(["g",`<b>현 조건으로 진행을 권고합니다.</b> 목표 마진율 대비 <b>${(c.mrate-t).toFixed(1)}%p</b> 여유가 있습니다.`]);
+    recs.push(["",`일리스료는 손익분기보다 <b>${won(c.fee-c.be)}원(${pct((c.fee-c.be)/c.fee*100,0)})</b> 높아, 런칭 프로모션 시 일리스료 <b>${won(Math.max(c.be,c.recFee))}원</b>까지는 ${c.fee>c.recFee?"목표 마진을 지키며":"손실 없이"} 인하할 수 있습니다.`]);
+  }
+  if(c.unitMargin<=0) recs.push(["b",`<b>현 조건으로는 진행 불가</b>합니다. 일리스료 <b>${won(c.be)}원 이상</b> 또는 ${c.isSet?"본품 ":""}할인율 <b>${pct(c.minRate)} 이상</b>이 손익분기, 목표 ${t}%는 일리스료 ${won(c.recFee)}원 또는 할인율 ${pct(c.needRate)}입니다.`]);
+  else if(c.mrate<t) recs.push(["w",`목표 ${t}% 달성을 위해 <b>① 일리스료 ${won(c.recFee)}원</b>(+${won(c.recFee-c.fee)}원) 또는 <b>② ${c.isSet?"본품 ":""}할인율 ${pct(c.needRate)}</b>(+${(c.needRate-c.rate).toFixed(1)}%p) 또는 <b>③ 추가 할인 ${won(c.needExtra)}원</b> 중 하나를 확보합니다.`]);
+  if(qtyShort && c.unitMargin>0) recs.push(["w",`예상 ${won(c.qty)}대로는 고정비를 회수하지 못합니다. <b>판매목표를 ${won(b.bepQty)}대 이상</b>으로 잡거나 고정비를 <b>${fmtShort(c.unitMargin*c.qty)}원 이하</b>로 줄여야 합니다.`]);
+  recs.push(...SA.recs);
+  recs.push(["",`제휴사 협상 기준선: ${c.isSet?"본품 ":""}할인율 <b>${pct(c.minRate)}</b> 미만은 손실, <b>${pct(c.needRate)}</b> 이상이면 목표 마진 확보${c.rate>=c.needRate?" (현재 조건 충족)":""}.`]);
+  if(worst.length) recs.push(["w",`리스크 점검에서 <b>${worst.join(", ")}</b> 시 적자가 됩니다. 계약서에 최소 판매수량·할인율 유지 조건을 넣는 것을 권합니다.`]);
+  else recs.push(["g",`리스크 점검 ${SR.length-1}개 시나리오 모두에서 흑자를 유지합니다.`]);
+  if(b.fixed===0) recs.push(["",`고정비가 0원으로 입력되어 있습니다. 판촉·광고 등 실제 고정비를 넣으면 손익분기 수량이 정확해집니다.`]);
+  const K=(cls,l,vv,s,dl)=>`<div class="k ${cls}"><div class="l">${l}</div><div class="v">${vv}</div><div class="s">${s}</div>${dl||""}</div>`;
+  secNo=0;
+  D.innerHTML=`
+    <header class="doc-head">
+      <div><div class="eb">신규 제휴상품 도입 검토${c.isSet?" · 세트 상품":""}</div><h2>${esc(f.partner||"제휴사")} · ${esc(f.name||"상품명")}</h2>
+        <div class="meta">${ds} · ${c.days}일 리스 옵션상품 · 예상 ${won(c.qty)}대 기준${c.isSet?` · 구성: 본품 + ${c.comps.map(x=>esc(x.name)+(x.n>1?` ×${x.n}`:"")).join(", ")}`:""}${B?" · 기준안 대비 변동 표시 중":""}</div></div>
+      <div class="verdict-pill"><span class="p ${v.cls}">${v.label}</span><span class="s">${v.sub}</span></div>
+    </header>
+    <section class="sec"><h3><span class="n">${SN()}</span>핵심 결론</h3>
+      <p class="conclusion">${concl}</p>
+      <div class="kgrid">
+        ${K(status(c.mrate),"마진율",pct(c.mrate,2),`목표 ${t}% · 매입 대비 ${pct(c.markup)}`,B&&dTxt(c.mrate,B.c.mrate,"%p"))}
+        ${K("","대당 마진",`${won(c.unitMargin)}<small>원</small>`,`판매 ${won(c.unitGross)} − 매입 ${won(c.total)}`,B&&dTxt(c.unitMargin,B.c.unitMargin,"원"))}
+        ${K(isFinite(b.bepQty)?(qtyShort?"warn":"good"):"bad","손익분기 수량",isFinite(b.bepQty)?`${won(b.bepQty)}<small>대</small>`:"불가",b.fixed?`고정비 ${fmtShort(b.fixed)}원 회수`:"고정비 0원 기준",B&&isFinite(b.bepQty)&&isFinite(B.b.bepQty)?dTxt(b.bepQty,B.b.bepQty,"대"):"")}
+        ${K("ink",`예상 순이익 (${won(c.qty)}대)`,`${fmtShort(b.net)}<small>원</small>`,`ROI ${pct(b.roi,1)}`,B&&dTxt(b.net,B.b.net,"원"))}
+      </div>
+    </section>
+    <section class="sec"><h3><span class="n">${SN()}</span>대당 수익 구조<span class="r">1${c.isSet?"세트":"대"}를 ${c.days}일 리스할 때</span></h3>${chain}${wf}</section>
+    ${c.isSet?`<section class="sec set"><h3><span class="n">${SN()}</span>세트 구성 분석<span class="r">구성품 할인 변화가 세트 마진에 주는 영향</span></h3>${SA.html}</section>`:""}
+    <section class="sec"><h3><span class="n">${SN()}</span>사업 효과<span class="r">예상 판매수량 기준</span></h3>${biz}</section>
+    <section class="sec"><h3><span class="n">${SN()}</span>리스크 점검<span class="r">한 가지 조건만 악화될 때</span></h3>${risk}</section>
+    <section class="sec"><h3><span class="n">${SN()}</span>협상·운영 기준선</h3>${bounds}</section>
+    <section class="sec"><h3><span class="n">${SN()}</span>제안</h3><ul class="recs">${recs.map(([cl,tx])=>`<li class="${cl}"><span>${tx}</span></li>`).join("")}</ul></section>
+    <footer class="doc-foot"><span>전제: ${c.days}일 리스 · 부가세 미반영 · 손실률 ${state.set.loss}% · 수납 수수료 ${state.set.fee}% · 할인가 원 단위 반올림</span><span>제휴상품 마진 관리</span></footer>`;
+  D.dataset.text = reportText(f,c,b,v,SR,recs,ds,SA);
+  renderDetail(f,c,b); renderScen(); save();
+}
+function reportText(f,c,b,v,SR,recs,ds,SA){
+  const strip=h=>h.replace(/<[^>]+>/g,""), t=tgt(); let n=0; const H=s=>`${++n}. ${s}`;
+  return [
+    `[신규 제휴상품 도입 검토] ${f.partner||""} · ${f.name||""}${c.isSet?" (세트)":""}  (${ds})`,
+    `판정: ${v.label} — ${v.sub}`, ``,
+    H("핵심 결론"),
+    `· 마진율 ${pct(c.mrate,2)} (목표 ${t}%) / 대당 마진 ${won(c.unitMargin)}원 / 손익분기 ${isFinite(b.bepQty)?won(b.bepQty)+"대":"불가"} / 예상 순이익 ${won(b.net)}원 (ROI ${pct(b.roi,1)})`, ``,
+    H(`대당 수익 구조 (${c.days}일)`),
+    c.isSet? `· 세트 매입원가 ${won(c.total)}원 (본품 ${won(c.mSupply)} + 구성품 ${won(c.compSupply)} + 배송비 ${won(c.ship)})`
+           : `· 매입원가: 소비자가 ${won(c.price)} − 제휴할인 ${won(c.amt)} (${pv(c.rate)}%${c.extra?` + ${won(c.extra)}원`:""}) + 배송비 ${won(c.ship)} = ${won(c.total)}원`,
+    `· 판매금액: 일리스료 ${won(c.fee)}원 × ${c.days}일 = ${won(c.unitGross)}원${c.unitDeduct?` (손실·수수료 −${won(c.unitDeduct)}원)`:""}`,
+    `· 대당 마진: ${won(c.unitMargin)}원 (매입 대비 ${pct(c.markup,1)})`, ``,
+    ...(c.isSet? [H("세트 구성 분석"), ...SA.text, ``] : []),
+    H(`사업 효과 (예상 ${won(c.qty)}대)`),
+    `· 판매금액 ${won(c.gross)}원 / 매입가액 ${won(c.purchase)}원 / 마진 ${won(c.margin)}원`,
+    `· 고정비 ${won(b.fixed)}원 차감 순이익 ${won(b.net)}원${isFinite(b.bepDay)&&b.bepDay<=c.days?` / 투입금 회수 D+${b.bepDay}`:""}`, ``,
+    H("리스크 점검 (순이익)"),
+    ...SR.slice(1).map(x=>`· ${x.l}: 마진율 ${pct(x.cc.mrate)}, 순이익 ${won(x.bb.net)}원`), ``,
+    H("협상·운영 기준선"),
+    `· 일리스료: 하한 ${won(c.be)}원 / 목표 ${isFinite(c.recFee)?won(c.recFee)+"원":"불가"} / 현재 ${won(c.fee)}원`,
+    `· ${c.isSet?"본품 ":""}할인율: 하한 ${pct(c.minRate,2)} / 목표 ${pct(c.needRate,2)} / 현재 ${pct(c.rate,2)}`,
+    ...c.comps.map(x=>`· ${x.name} 할인율: 하한 ${pct(x.beRate,2)} / 목표 ${pct(x.tRate,2)} / 현재 ${pct(x.r,2)}`),
+    `· 판매수량: 최소 ${isFinite(b.bepQty)?won(b.bepQty)+"대":"불가"} / 예상 ${won(c.qty)}대`, ``,
+    H("제안"), ...recs.map(([,tx])=>`· ${strip(tx)}`), ``,
+    `※ ${c.days}일 리스 기준, 부가세 미반영`
+  ].join("\n");
+}
+function renderDetail(f,c,b){
+  const t=tgt(), k=c.k, risk=k<1;
+  const L=(no,nm,ex,rs,cls)=>`<li class="${cls||""}"><span class="no">${no}</span><span class="nm">${nm}</span><span class="ex">${ex}</span><span class="rs">${rs}</span></li>`;
+  let i=0; const n=()=>String(++i).padStart(2,"0");
+  document.getElementById("formula").innerHTML=[
+    `<li class="sec">매입 (${c.isSet?"세트당":"대당"})</li>`,
+    L(n(),c.isSet?"본품 할인가":"제휴 할인가",`${won(c.mPrice)} × ${pv(c.rate)}%${c.extra?` + 추가할인 ${won(c.extra)}`:""}`,`${won(c.mAmt)}원`),
+    L(n(),c.isSet?"본품 공급가":"제휴 공급가",`${won(c.mPrice)} − ${won(c.mAmt)}`,`${won(c.mSupply)}원`),
+    ...c.comps.map(x=>L(n(),`${x.name} 공급가`,`(${won(x.p)} − ${won(x.p)} × ${pv(x.r)}%${x.ex?` − ${won(x.ex)}`:""}) × ${x.n}개`,`${won(x.ts)}원`,"cpl")),
+    L(n(),c.isSet?"세트 매입원가":"매입원가",`${won(c.mSupply)}${c.isSet?` + 구성품 ${won(c.compSupply)}`:""} + 배송비 ${won(c.ship)}`,`${won(c.total)}원`,"key"),
+    `<li class="sec">판매 (대당 · ${c.days}일)</li>`,
+    L(n(),"대당 판매금액",`${won(c.fee)} × ${c.days}일`,`${won(c.unitGross)}원`),
+    risk? L(n(),"손실·수수료",`${won(c.unitGross)} × ${pv((1-k)*100)}%`,`−${won(c.unitDeduct)}원`):"",
+    L(n(),"대당 마진",`${won(c.unitNet)} − ${won(c.total)}`,`${won(c.unitMargin)}원`,"key"),
+    L(n(),"마진율",`${won(c.unitMargin)} ÷ ${won(c.unitGross)}`,pct(c.mrate,2),"key"),
+    L(n(),"매입 대비 마진",`${won(c.unitMargin)} ÷ ${won(c.total)}`,pct(c.markup,2)),
+    `<li class="sec">예상 ${won(c.qty)}대</li>`,
+    L(n(),"판매금액",`${won(c.unitGross)} × ${won(c.qty)}대`,`${won(c.gross)}원`),
+    L(n(),"매입가액",`${won(c.total)} × ${won(c.qty)}대`,`${won(c.purchase)}원`),
+    L(n(),"마진가액",`${won(c.gross)}${risk?` − ${won(c.deduct)}`:""} − ${won(c.purchase)}`,`${won(c.margin)}원`,"key"),
+    L(n(),"순이익",`${won(c.margin)} − 고정비 ${won(b.fixed)}`,`${won(b.net)}원`),
+    L(n(),"ROI",`${won(b.net)} ÷ (${won(c.purchase)} + ${won(b.fixed)})`,pct(b.roi,2)),
+    `<li class="sec">손익분기 · 목표</li>`,
+    L(n(),"손익분기 수량",`${won(b.fixed)} ÷ ${won(c.unitMargin)} (올림)`,isFinite(b.bepQty)?`${won(b.bepQty)}대`:"불가","key"),
+    L(n(),"손익분기 일리스료",`${won(c.total)} ÷ ${c.days}${risk?` ÷ ${pv(k*100)}%`:""} (올림)`,`${won(c.be)}원`),
+    L(n(),c.isSet?"본품 손익분기 할인율":"손익분기 할인율",`다른 할인 유지, 마진 0원이 되는 할인율`,pct(c.minRate,2)),
+    ...c.comps.map(x=>L(n(),`${x.name} 손익분기 할인율`,`다른 조건 유지, 마진 0원이 되는 할인율`,pct(x.beRate,2),"cpl")),
+    L(n(),`목표 ${t}% 일리스료`,`${won(c.total)} ÷ (${c.days} × ${pv((k-t/100)*100)}%)`,isFinite(c.recFee)?`${won(c.recFee)}원`:"불가"),
+    L(n(),`목표 ${t}% ${c.isSet?"본품 ":""}할인율`,`일리스료·다른 할인 유지`,pct(c.needRate,2)),
+    ...c.comps.map(x=>L(n(),`목표 ${t}% ${x.name} 할인율`,`일리스료·다른 할인 유지`,pct(x.tRate,2),"cpl")),
+    L(n(),`목표 ${t}% 추가할인`,`일리스료·할인율 유지`,`${won(c.needExtra)}원`),
+  ].join("");
+  document.getElementById("qchart").innerHTML=qtyChart(c,b);
+  const qs=[...new Set([isFinite(b.bepQty)?b.bepQty:null,50,100,200,300,500,c.qty].filter(v=>v>0))].sort((a,b)=>a-b);
+  document.getElementById("qtyTbl").innerHTML=`<thead><tr><th class="n">판매수량</th><th class="n">판매금액</th><th class="n">매입가액</th><th class="n">마진가액</th><th class="n">순이익</th><th></th></tr></thead><tbody>`+
+    qs.map(q=>{ const cc=calc(f,{qty:q}), net=cc.margin-b.fixed, isB=q===b.bepQty, isC=q===c.qty;
+      return `<tr class="${isB?"bep":isC?"hl":""}"><td class="n"><b>${won(q)}대</b></td><td class="n">${won(cc.gross)}</td><td class="n">${won(cc.purchase)}</td><td class="n">${won(cc.margin)}</td><td class="n ${net<0?"down":""}">${won(net)}</td><td>${isB?'<span class="chip good">손익분기</span> ':""}${isC?'<span class="chip info">예상</span>':""}</td></tr>`; }).join("")+`</tbody>`;
+  const tg=[...new Set([10,15,20,25,30,t])].sort((a,b)=>a-b);
+  document.getElementById("tgtTbl").innerHTML=`<thead><tr><th class="n">목표 마진율</th><th class="n">필요 일리스료</th><th class="n">필요 ${c.isSet?"본품 ":""}할인율</th>${c.comps.map(x=>`<th class="n">필요 ${esc(x.name)} 할인율</th>`).join("")}<th class="n">필요 추가할인</th><th>현재</th></tr></thead><tbody>`+
+    tg.map(x=>{ const cc=calc(f,{_target:x}), ok=c.mrate>=x;
+      return `<tr class="${x===t?"hl":""}"><td class="n"><b>${x}%</b></td><td class="n">${isFinite(cc.recFee)?won(cc.recFee)+"원":"불가"}</td><td class="n">${pct(cc.needRate,2)}</td>${cc.comps.map(z=>`<td class="n">${pct(z.tRate,2)}</td>`).join("")}<td class="n">${won(cc.needExtra)}원</td><td><span class="chip ${ok?"good":"bad"}">${ok?"달성":"미달"}</span></td></tr>`; }).join("")+`</tbody>`;
+  const rates=[-10,-5,0,5,10].map(d=>pv(c.rate+d)).filter(v=>v>=0&&v<100), step=c.fee>=2000?200:100;
+  const fees=[-2,-1,0,1,2].map(i=>c.fee+i*step).filter(v=>v>0);
+  document.getElementById("matrix").innerHTML=`<thead><tr><th>할인율 \\ 일리스료</th>${fees.map(x=>`<th>${won(x)}원</th>`).join("")}</tr></thead><tbody>`+
+    rates.map(rt=>`<tr><th>${rt}%</th>${fees.map(fe=>{ const cc=calc(f,{rate:rt,fee:fe}), cur=rt===pv(c.rate)&&fe===c.fee;
+      return `<td class="${cur?"cur":""}"><span class="chip ${status(cc.mrate)}">${pct(cc.mrate)}</span><span class="sm">${won(cc.unitMargin)}원/대</span></td>`; }).join("")}</tr>`).join("")+`</tbody>`;
+}
+function renderScen(){
+  const box=document.getElementById("scen"); if(!box) return;
+  if(!state.scen.length){ box.innerHTML=`<p class="empty" style="padding:16px">저장된 시나리오가 없습니다. 조건을 바꿔 가며 ‘시나리오로 저장’을 누르면 A안·B안을 나란히 비교할 수 있습니다. 단품안과 세트안을 각각 저장해 비교해 보세요.</p>`; return; }
+  const cols=state.scen.map(s=>{ const c=calc(s), b=bepOf(c,s.fixed); return {s,c,b,v:verdictOf(c,b)}; });
+  const best=Math.max(...cols.map(x=>x.b.net));
+  const row=(label,fn)=>`<tr><th>${label}</th>${cols.map(x=>`<td class="n">${fn(x)}</td>`).join("")}</tr>`;
+  box.innerHTML=`<div class="tbl-wrap"><table><thead><tr><th></th>${cols.map(({s,c})=>`<th class="n">${esc(s.label)} ${c.isSet?'<span class="chip cp">세트</span>':""}<span class="sub" style="display:block;font-weight:400">${esc(s.partner)} · ${esc(s.name)}</span></th>`).join("")}</tr></thead><tbody>
+    ${row("판정",x=>`<span class="chip ${x.v.cls}">${x.v.label}</span>`)}
+    ${row("구성",x=>x.c.isSet? "본품 + "+x.c.comps.map(z=>esc(z.name)).join(", ") : "단품")}
+    ${row("소비자가 합계",x=>won(x.c.price))}
+    ${row("할인",x=>`${pv(x.c.rate)}%${x.c.extra?` + ${won(x.c.extra)}`:""}${x.c.isSet?` / ${x.c.comps.map(z=>pv(z.r)+"%").join(", ")}`:""}`)}
+    ${row("매입원가",x=>won(x.c.total))}
+    ${row("일리스료",x=>won(x.c.fee))}
+    ${row("대당 마진",x=>`<b class="${x.c.unitMargin<0?"down":""}">${won(x.c.unitMargin)}</b>`)}
+    ${row("마진율",x=>`<span class="chip ${status(x.c.mrate)}">${pct(x.c.mrate,2)}</span>`)}
+    ${row("손익분기 수량",x=>isFinite(x.b.bepQty)? won(x.b.bepQty)+"대":"불가")}
+    ${row("예상 수량",x=>won(x.c.qty)+"대")}
+    ${row("마진가액",x=>won(x.c.margin))}
+    ${row("순이익",x=>`<b class="${x.b.net<0?"down":""}">${won(x.b.net)}</b>${x.b.net===best&&cols.length>1?' <span class="chip good">최대</span>':""}`)}
+    ${row("ROI",x=>pct(x.b.roi,1))}
+    <tr><th></th>${cols.map(({s})=>`<td class="n"><button class="link" data-load="${s.id}">불러오기</button> <button class="link" style="color:var(--bad)" data-sdel="${s.id}">삭제</button></td>`).join("")}</tr>
+  </tbody></table></div>`;
+}
+
+/* ================= 등록 상품 ================= */
+const cur = () => state.sheets.find(s=>s.id===ui.sheet);
+function rowBySrc(src){ const sh=state.sheets.find(s=>s.id===src.sheet), r=sh&&sh.rows.find(x=>x.id===src.row); return r? {sh,r}:null; }
+function renderList(){
+  if(ui.sheet!=="sum" && !cur()) ui.sheet="sum";
+  document.getElementById("view").innerHTML=`${guide("list","등록 상품 화면 사용법",[
+    `<b>위 탭에서 제휴사를 고릅니다.</b> ‘전체 요약’은 모든 제휴사 합계이고, 행을 누르면 해당 제휴사로 이동합니다.`,
+    `<b>노란 칸(✎)을 고치면 바로 저장</b>되고 팀 전체 화면에 반영됩니다. 리스 기간은 상품마다 365일/180일 중에서 고릅니다.`,
+    `<b>제휴사 가격 인상을 검토할 때는 ‘가격 인상 시뮬레이션’</b>에 인상률만 넣으세요. 등록값은 그대로 두고, 상품별로 일리스료를 얼마 올려야 지금 마진이 유지되는지 보여 줍니다. 자세한 비교는 ‘비교 시트로 →’.`,
+    `<b>주의:</b> 아래 ‘일괄 변경’은 등록값을 실제로 바꿉니다. 검토만 할 때는 시뮬레이션을 쓰세요.`])}
+  <nav class="tabs" aria-label="제휴사 시트">
+    <button class="tab ${ui.sheet==="sum"?"on":""}" data-tab="sum">전체 요약</button>
+    ${state.sheets.map(sh=>`<button class="tab ${ui.sheet===sh.id?"on":""}" data-tab="${sh.id}" data-tabname="${sh.id}">${esc(sh.name)}</button>`).join("")}
+  </nav><div id="sheetView" style="display:flex;flex-direction:column;gap:16px"></div>`;
+  ui.sheet==="sum"? renderSummary() : renderSheet(cur());
+}
+function renderSummary(){
+  const rows=state.sheets.map(sh=>({sh,t:sheetTotals(sh)}));
+  const T=rows.reduce((a,{t})=>{ for(const k of ["gross","purchase","margin","qty"]) a[k]+=t[k]; return a; },{gross:0,purchase:0,margin:0,qty:0});
+  T.mr=T.gross?T.margin/T.gross*100:0; T.markup=T.purchase?T.margin/T.purchase*100:0;
+  document.getElementById("sheetView").innerHTML=`
+  <div class="sheet-head"><div><h2 style="font-size:18px">등록 상품 전체 요약</h2><p class="sub">제휴사 행을 누르면 해당 시트에서 수정할 수 있습니다.</p></div>
+    <div class="btns"><button id="btnCopyAll">전체 표 복사 (엑셀)</button><button id="btnSeed">기본 데이터 불러오기</button><button id="btnImport">JSON 가져오기</button><button id="btnExport">JSON 백업 내려받기</button><input type="file" id="impFile" accept="application/json,.json" hidden></div></div>
+  ${rows.length? "" : `<section class="panel"><p class="empty">${shared.ready? "등록된 상품이 없습니다. ‘신규 상품 검토’에서 조건을 넣고 ‘등록 상품에 추가’를 누르면 팀 전체에 공유됩니다." : "공용 데이터를 불러오는 중입니다…"}</p></section>`}
+  <section class="kpis">
+    <div class="kpi"><div class="l">총 판매금액</div><div class="v">${won(T.gross)}</div></div>
+    <div class="kpi"><div class="l">총 매입가액</div><div class="v">${won(T.purchase)}</div></div>
+    <div class="kpi main"><div class="l">총 마진가액</div><div class="v">${won(T.margin)}</div><div class="d">매입 대비 ${pct(T.markup)}</div></div>
+    <div class="kpi"><div class="l">평균 마진율</div><div class="v">${pct(T.mr,2)}</div></div>
+  </section>
+  <section class="panel"><div class="tbl-wrap"><table><thead><tr><th>제휴사</th><th class="n">판매금액</th><th class="n">매입가액</th><th class="n">마진가액</th><th class="n">마진율</th><th class="n">매입 대비 마진</th><th class="n">마진 비중</th></tr></thead><tbody>
+    ${rows.map(({sh,t})=>`<tr class="go" data-go="${sh.id}" tabindex="0"><td><b>${esc(sh.name)}</b></td><td class="n">${won(t.gross)}</td><td class="n">${won(t.purchase)}</td><td class="n">${won(t.margin)}</td><td class="n"><span class="chip ${status(t.mr)}">${pct(t.mr)}</span></td><td class="n">${pct(t.markup)}</td><td class="n">${T.margin?pct(t.margin/T.margin*100):"–"}</td></tr>`).join("")}
+  </tbody><tfoot><tr><td>합계</td><td class="n">${won(T.gross)}</td><td class="n">${won(T.purchase)}</td><td class="n">${won(T.margin)}</td><td class="n">${pct(T.mr)}</td><td class="n">${pct(T.markup)}</td><td class="n">100%</td></tr></tfoot></table></div></section>`;
+}
+function inp(id,f,val,cls,mode,label){ return `<input id="${f}-${id}" data-id="${id}" data-f="${f}" class="${cls}" inputmode="${mode||"numeric"}" value="${val}" aria-label="${label}">`; }
+function renderSheet(sh){
+  document.getElementById("sheetView").innerHTML=`
+  <div class="sheet-head">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input id="shName" class="sheet-name" value="${esc(sh.name)}" aria-label="제휴사 이름" size="${Math.max(6,sh.name.length+2)}"><span class="sub">노란 칸(✎)을 고치면 전체가 함께 바뀝니다 · 세트 구성품은 ‘검토’에서 수정</span></div>
+    <div class="btns"><button id="btnCopy">표 복사 (엑셀)</button><button id="btnDelSheet" class="danger">시트 삭제</button></div>
+  </div>
+  <section class="kpis" id="kpis"></section>
+  <section class="panel"><div class="tbl-wrap"><table class="ledger"><thead><tr>
+    <th class="sticky in">상품명</th><th class="in">리스 기간</th><th class="n in">소비자가</th><th class="n in">할인율(%)</th><th class="n in">추가할인</th><th class="n">제휴 할인가</th><th class="n">제휴 공급가</th><th class="n in">배송비</th><th class="n">매입원가</th>
+    <th class="n in">일리스료</th><th class="n in">판매수량</th><th class="n">판매금액</th><th class="n">매입가액</th><th class="n">마진가액</th><th class="n">마진율</th><th class="n">대당 마진</th><th class="n">손익분기 일리스료</th><th class="n">손익분기 할인율</th><th></th>
+  </tr></thead><tbody id="tbody"></tbody><tfoot id="tfoot"></tfoot></table></div></section>
+  <section class="panel" aria-label="가격 인상 시뮬레이션">
+    <div class="panel-h"><h2>가격 인상 시뮬레이션</h2><span class="sub">미리보기 전용 · 등록값은 바뀌지 않습니다</span></div>
+    <div class="sim-in">
+      <div class="field"><label for="simPct">제휴사 소비자가 인상률</label><div class="unit"><input id="simPct" class="num" inputmode="decimal" value="${ui.simPct??5}"><span>%</span></div></div>
+      <div class="field"><label for="simRate">할인율 변경 (선택)</label><div class="unit"><input id="simRate" class="num" inputmode="decimal" value="${ui.simRate??0}"><span>%p</span></div><span class="hint">할인율도 바뀌면 입력 (예: −5)</span></div>
+      <div class="field"><label>지킬 기준</label><div class="dayseg" role="group" aria-label="지킬 기준">${[["rate","현재 마진율"],["unit","현재 대당 마진"]].map(([v,l])=>`<button type="button" data-simkeep="${v}" class="${(ui.simKeep||"rate")===v?"on":""}">${l}</button>`).join("")}</div></div>
+    </div>
+    <div class="tbl-wrap"><table id="simTbl"></table></div>
+    <p class="sub" style="font-size:12px;margin-top:8px">‘비교 시트로’를 누르면 현재안 · 인상 후 일리스료 그대로 · 인상 후 일리스료 조정 3개 안이 만들어져 바로 비교됩니다. 세트 상품은 본품 소비자가만 인상합니다.</p>
+  </section>
+  <section class="panel"><div class="panel-h"><h2>일괄 변경</h2><span class="sub">${esc(sh.name)} 시트 전체 상품(세트는 본품)에 적용 · 등록값이 바로 바뀝니다</span></div>
+    <div class="bulk">
+      <div class="field"><label for="bPrice">소비자가 일괄 변경 (±%)</label><div class="inline"><input id="bPrice" class="num" inputmode="decimal" placeholder="예: 5"><button data-bulk="price">적용</button></div></div>
+      <div class="field"><label for="bRate">할인율 (%)</label><div class="inline"><input id="bRate" class="num" inputmode="decimal" placeholder="예: 20"><button data-bulk="rate">적용</button></div></div>
+      <div class="field"><label for="bExtra">추가 할인금액 (원)</label><div class="inline"><input id="bExtra" class="num" inputmode="numeric" placeholder="예: 10000"><button data-bulk="extra">적용</button></div></div>
+      <div class="field"><label for="bShip">배송비 (원)</label><div class="inline"><input id="bShip" class="num" inputmode="numeric" placeholder="예: 3000"><button data-bulk="ship">적용</button></div></div>
+      <div class="field"><label for="bQty">판매수량 (대)</label><div class="inline"><input id="bQty" class="num" inputmode="numeric" placeholder="예: 150"><button data-bulk="qty">적용</button></div></div>
+    </div></section>`;
+  renderLedger(sh);
+}
+function renderLedger(sh){
+  document.getElementById("tbody").innerHTML = sh.rows.map(r=>`<tr data-row="${r.id}">
+    <td class="sticky txt"><input id="name-${r.id}" data-id="${r.id}" data-f="name" value="${esc(r.name)}" aria-label="상품명"><span class="flag cp" data-c="set"></span></td>
+    <td><select class="dsel" data-id="${r.id}" data-f="days" aria-label="${esc(r.name)} 리스 기간">${[365,180].map(d=>`<option value="${d}" ${(+r.days===180?180:365)===d?"selected":""}>${d}일</option>`).join("")}</select></td>
+    <td class="n">${inp(r.id,"price",won(r.price),"w-l","numeric","소비자가")}<span class="flag cp" data-c="setp"></span></td>
+    <td class="n">${inp(r.id,"rate",r.rate,"w-s","decimal","할인율")}</td>
+    <td class="n">${inp(r.id,"extra",won(r.extra),"w-m","numeric","추가할인")}</td>
+    <td class="n" data-c="amt"></td><td class="n" data-c="supply"></td>
+    <td class="n">${inp(r.id,"ship",won(r.ship),"w-s","numeric","배송비")}</td><td class="n" data-c="total"></td>
+    <td class="n">${inp(r.id,"fee",won(r.fee),"w-s","numeric","일리스료")}</td>
+    <td class="n">${inp(r.id,"qty",won(r.qty),"w-s","numeric","판매수량")}</td>
+    <td class="n" data-c="gross"></td><td class="n" data-c="purchase"></td><td class="n" data-c="margin" style="font-weight:700"></td><td class="n" data-c="mrate"></td><td class="n" data-c="um"></td><td class="n" data-c="be"></td><td class="n" data-c="minRate"></td>
+    <td><button class="link" data-tocalc="${r.id}" title="검토 화면에서 열기">검토</button><button class="link" data-tocmp="${r.id}" title="비교 시트에서 열기">비교${r.plans&&r.plans.length?`(${r.plans.length})`:""}</button><button class="del" data-del="${r.id}" aria-label="${esc(r.name)} 삭제">×</button></td></tr>`).join("")
+    || `<tr><td colspan="19" class="empty" style="padding:16px">상품이 없습니다. ‘신규 상품 검토’에서 ‘등록 상품에 추가’를 누르면 이 시트에 들어옵니다.</td></tr>`;
+  sh.rows.forEach(r=>updateRow(r)); updateSheet(sh);
+}
+function updateRow(r){
+  const tr=document.querySelector(`tr[data-row="${r.id}"]`); if(!tr) return;
+  const c=calc(r), set=(k,v)=>{ const el=tr.querySelector(`[data-c="${k}"]`); if(el) el.innerHTML=v; };
+  set("set", c.isSet? `세트: 본품 + ${c.comps.map(x=>esc(x.name)).join(", ")}`:"");
+  set("setp", c.isSet? `세트 합계 ${won(c.price)}`:"");
+  set("amt",won(c.amt)); set("supply",won(c.supply)); set("total",won(c.total)); set("gross",won(c.gross)); set("purchase",won(c.purchase));
+  set("margin",`<span class="${c.margin<0?"down":""}">${won(c.margin)}</span>`); set("mrate",`<span class="chip ${status(c.mrate)}">${pct(c.mrate)}</span>`);
+  set("um",won(c.unitMargin));
+  set("be",`${won(c.be)}<span class="flag ${c.fee>=c.be?"good":"bad"}">${c.fee>=c.be?`여유 ${won(c.fee-c.be)}원`:`부족 ${won(c.be-c.fee)}원`}</span>`);
+  set("minRate",`${pct(c.minRate)}<span class="flag ${c.rate>=c.minRate?"good":"bad"}">${c.rate>=c.minRate?`여유 ${(c.rate-c.minRate).toFixed(1)}%p`:`부족 ${(c.minRate-c.rate).toFixed(1)}%p`}</span>`);
+}
+function updateSheet(sh){
+  const T=sheetTotals(sh);
+  document.getElementById("kpis").innerHTML=`
+    <div class="kpi"><div class="l">판매금액</div><div class="v">${won(T.gross)}</div><div class="d">${won(T.qty)}대</div></div>
+    <div class="kpi"><div class="l">매입가액</div><div class="v">${won(T.purchase)}</div></div>
+    <div class="kpi main"><div class="l">마진가액</div><div class="v">${won(T.margin)}</div><div class="d">매입 대비 ${pct(T.markup)}</div></div>
+    <div class="kpi"><div class="l">마진율</div><div class="v">${pct(T.mr,2)}</div><div class="d">${T.alert?`<span class="down">목표 ${tgt()}% 미달 ${T.alert}개</span>`:`<span class="up">전 상품 목표 달성</span>`}</div></div>`;
+  document.getElementById("tfoot").innerHTML=`<tr><td class="sticky">합계</td><td colspan="9"></td><td class="n">${won(T.qty)}</td><td class="n">${won(T.gross)}</td><td class="n">${won(T.purchase)}</td><td class="n">${won(T.margin)}</td><td class="n">${pct(T.mr)}</td><td colspan="4"></td></tr>`;
+  const tn=document.querySelector(`[data-tabname="${sh.id}"]`); if(tn) tn.textContent=sh.name;
+  renderSim(sh);
+  save();
+}
+/* 가격 인상 시뮬레이션 */
+function simOf(r){
+  const pctv=parseNum(ui.simPct??5), dr=parseNum(ui.simRate??0);
+  const now=calc(r), after={...r, price:Math.round((+r.price||0)*(1+pctv/100)), rate:Math.min(100,Math.max(0,(+r.rate||0)+dr))}, a=calc(after);
+  const keep=(ui.simKeep||"rate")==="rate"? feeKeepRate(a,now.mrate) : feeKeepUnit(a,now.unitMargin);
+  const adj=calc({...after,fee:isFinite(keep)?keep:after.fee});
+  return {pctv,dr,now,after,a,keep,adj};
+}
+function renderSim(sh){
+  const T=document.getElementById("simTbl"); if(!T) return;
+  if(!sh.rows.length){ T.innerHTML=`<tbody><tr><td class="empty" style="padding:14px">상품이 없습니다.</td></tr></tbody>`; return; }
+  const kp=(ui.simKeep||"rate")==="rate"; let sN=0,sA=0,sJ=0;
+  T.innerHTML=`<thead><tr><th>상품</th><th class="n">소비자가 (현재 → 인상 후)</th><th class="n">매입원가 (현재 → 인상 후)</th><th class="n">현재 일리스료</th><th class="n">현재 마진율</th><th class="n">일리스료 그대로 두면</th><th class="n">${kp?"현재 마진율":"현재 대당 마진"} 유지 일리스료</th><th class="n">올려야 할 금액</th><th></th></tr></thead><tbody>`+
+    sh.rows.map(r=>{ const s=simOf(r), up=s.keep-s.now.fee, du=s.a.unitMargin-s.now.unitMargin; sN+=s.now.margin; sA+=s.a.margin; sJ+=s.adj.margin;
+      return `<tr><td><b>${esc(r.name)}</b>${+r.days===180?' <span class="chip info">180일</span>':""}</td>
+        <td class="n">${won(s.now.price)} → <b>${won(s.a.price)}</b></td><td class="n">${won(s.now.total)} → <b>${won(s.a.total)}</b></td>
+        <td class="n">${won(s.now.fee)}원</td><td class="n"><span class="chip ${status(s.now.mrate)}">${pct(s.now.mrate)}</span></td>
+        <td class="n"><span class="chip ${status(s.a.mrate)}">${pct(s.a.mrate)}</span><span class="flag ${du<0?"bad":"good"}">대당 ${du>=0?"+":"−"}${won(Math.abs(du))}원</span></td>
+        <td class="n"><b style="font-size:15px">${isFinite(s.keep)?won(s.keep)+"원":"불가"}</b></td>
+        <td class="n"><b class="${up>0?"down":"up"}">${isFinite(up)?(up>0?"+":up<0?"−":"")+won(Math.abs(up))+"원":"–"}</b><span class="flag" style="color:var(--muted)">${isFinite(up)&&s.now.fee?(up>=0?"+":"")+pct(up/s.now.fee*100,1):""}</span></td>
+        <td><button class="link" data-simcmp="${r.id}">비교 시트로 →</button></td></tr>`; }).join("")+
+    `</tbody><tfoot><tr><td>마진가액 합계 (예상 수량)</td><td colspan="3"></td><td class="n">${won(sN)}</td><td class="n">${won(sA)}<span class="flag ${sA<sN?"bad":"good"}">${sA-sN>=0?"+":"−"}${fmtShort(Math.abs(sA-sN))}원</span></td><td class="n" colspan="2">조정하면 ${won(sJ)}</td><td></td></tr></tfoot>`;
+}
+const samePlan = (p,r) => ["price","rate","extra","ship","fee","qty"].every(k=>(+p[k]||0)===(+r[k]||0)) && (+p.days===180?180:365)===(+r.days===180?180:365) && JSON.stringify((p.items||[]).map(itemDoc))===JSON.stringify((r.items||[]).map(itemDoc));
+function basePlanOf(r){ return (r.plans||[]).find(p=>samePlan(p,r)) || addPlan(r,r,"현재 등록값 (기준)"); }
+/* 처음 쓰는 사람을 위한 안내 */
+function guide(key,title,steps,terms){
+  let open=true; try{ open=localStorage.getItem("tpm-guide-"+key)!=="closed"; }catch(e){}
+  return `<details class="guide" data-guide="${key}" ${open?"open":""}><summary>${title}</summary><ol>${steps.map(s=>`<li>${s}</li>`).join("")}</ol>${terms?`<div class="terms">${terms.map(([a,b])=>`<span><b>${a}</b> ${b}</span>`).join("")}</div>`:""}</details>`;
+}
+document.addEventListener("toggle",e=>{ const g=e.target; if(g.classList&&g.classList.contains("guide")){ try{ localStorage.setItem("tpm-guide-"+g.dataset.guide, g.open?"open":"closed"); }catch(err){} } },true);
+const TERMS=[["매입원가","우리가 제휴사에 내는 돈 (소비자가 − 할인 + 배송비)"],["대당 마진","1대를 빌려줘서 남는 돈 (판매금액 − 매입원가)"],["마진율","대당 마진 ÷ 판매금액"],["손익분기","손해도 이익도 없는 지점"],["기준안","비교할 때 기준이 되는 안 (보통 현재 조건)"]];
+
+/* ================= 비교 시트 ================= */
+const allRows = () => state.sheets.flatMap(sh=>sh.rows.map(r=>({sh,r})));
+const cmpRow = () => { const h=ui.cmp&&rowBySrc(ui.cmp); return h? h.r : null; };
+function snapOf(src){ return {days:+src.days===180?180:365, price:+src.price||0, rate:+src.rate||0, extra:+src.extra||0, ship:+src.ship||0, fee:+src.fee||0, qty:+src.qty||0, fixed:+src.fixed||0,
+  items:(src.items||[]).filter(it=>+it.price>0).map(it=>({id:uid++,name:it.name,price:+it.price,rate:+it.rate||0,extra:+it.extra||0,n:Math.max(1,+it.n||1)}))}; }
+function addPlan(r, src, desc){
+  r.plans=r.plans||[];
+  const n=Math.max(0,...r.plans.map(p=>parseInt(p.label)||0))+1;
+  const p={id:uid++, k:newKey(), label:`${n}안`, desc:desc||"", ...snapOf(src)}; planIdByKey.set(p.k,p.id); r.plans.push(p); return p;
+}
+const planDesc = f => `${+f.days===180?"180일 · ":""}소비자가 ${fmtShort(+f.price||0)} · 할인 ${pv(+f.rate||0)}%${+f.extra?` + ${fmtShort(+f.extra)}`:""} · ${won(+f.fee||0)}원/일`;
+function openInCalc(sh,r,src,label){
+  state.form={partner:sh.name,name:r.name,...snapOf(src),example:false,src:{sheet:sh.id,row:r.id}}; state.base=null; setView("calc");
+  toast(`‘${r.name}’${label?` ${label}`:""}을 검토 화면에서 열었습니다`);
+}
+function qVarMeta(r,key){
+  const M={rate:["할인율","%"],fee:["일리스료","원"],extra:["추가할인","원"],qty:["판매수량","대"],fixed:["고정비","원"],price:["소비자가","원"],ship:["배송비","원"],days:["리스 기간","일"]};
+  if(key==="pricePct") return {l:"소비자가",u:"%",d:v=>`소비자가 ${v>=0?"+":""}${pv(v)}% (${won(Math.round((+r.price||0)*(1+v/100)))}원)`,set:(p,v)=>{ p.price=Math.round((+r.price||0)*(1+v/100)); },neg:true};
+  if(key==="days") return {l:"리스 기간",u:"일",d:v=>`리스 ${v===180?180:365}일`,set:(p,v)=>{ p.days=v===180?180:365; }};
+  if(key[0]==="c"){ const i=+key.slice(1), it=(r.items||[])[i]; return {l:`${compName(it||{},i)} 할인율`,u:"%",set:(p,v)=>{ if(p.items[i]) p.items[i].rate=Math.min(100,v); }}; }
+  return {l:M[key][0],u:M[key][1],set:(p,v)=>{ p[key]= key==="rate"? Math.min(100,v) : Math.round(v); }};
+}
+function renderCmp(){
+  const V2=document.getElementById("view");
+  let hit = ui.cmp && rowBySrc(ui.cmp);
+  if(!hit){ const all=allRows(), pick=all.find(x=>x.r.plans&&x.r.plans.length)||all[0];
+    if(!pick){ V2.innerHTML=`<section class="panel"><p class="empty">등록된 상품이 없습니다. ‘신규 상품 검토’에서 상품을 등록하면 비교안을 만들 수 있습니다.</p></section>`; return; }
+    ui.cmp={sheet:pick.sh.id,row:pick.r.id,sel:[]}; hit=pick; }
+  const {sh,r}=hit; r.plans=r.plans||[];
+  const vars=[["pricePct","소비자가 인상률 (%) — 가격 인상 검토"],["rate","할인율 (%)"],["fee","일리스료 (원)"],["price","소비자가 (원)"],["extra","추가할인 (원)"],["ship","배송비 (원)"],["days","리스 기간 (365 또는 180)"],["qty","판매수량 (대)"],["fixed","고정비 (원)"],...(r.items||[]).map((it,i)=>[`c${i}`,`${compName(it,i)} 할인율 (%)`])];
+  V2.innerHTML=`
+  ${guide("cmp","비교 시트 사용법 (가격 인상 검토 예시)",[
+    `<b>오른쪽 위에서 상품을 고릅니다.</b>`,
+    `<b>‘빠른 안 만들기’</b>에서 바꿀 항목을 ‘소비자가 인상률’로 두고 값에 <b>5, 10</b>을 넣은 뒤 ‘안 만들기’를 누릅니다. 현재 등록값이 자동으로 <b>기준안</b>이 됩니다.`,
+    `<b>카드를 눌러 비교할 안을 고릅니다.</b> 먼저 고른 안이 기준이고, 나머지는 기준 대비 ▲▼로 표시됩니다.`,
+    `<b>표 아래쪽 ‘기준안 마진율 유지 일리스료’ 줄</b>을 보세요. 인상 후에도 지금 마진을 지키려면 일리스료를 얼마로 정해야 하는지 나옵니다. 표의 노란 칸은 바로 고칠 수 있습니다.`,
+    `<b>결정되면 ‘이 안으로 확정’</b>을 누르면 등록값이 그 안으로 바뀝니다. 필요 없는 안은 카드의 ×로 바로 지웁니다(7초 안에 되돌리기 가능).`])}
+  <div class="sheet-head"><div><h2 style="font-size:20px">비교 시트</h2><p class="sub">등록 상품마다 여러 안을 저장해 두고, 원하는 안을 골라 나란히 비교합니다. 먼저 고른 안이 기준입니다.</p></div>
+    <div class="inline" style="flex-wrap:wrap"><select id="cmpRow" aria-label="비교할 상품">${state.sheets.map(s=>`<optgroup label="${esc(s.name)}">${s.rows.map(x=>`<option value="${s.id}:${x.id}" ${x.id===r.id?"selected":""}>${esc(x.name)}${x.plans&&x.plans.length?` · ${x.plans.length}안`:""}</option>`).join("")}</optgroup>`).join("")}</select><button id="btnCmpOpen">검토 화면에서 열기</button></div></div>
+  <section class="panel"><div class="panel-h"><div><h2>${esc(sh.name)} · ${esc(r.name)} 비교안</h2><span class="sub">카드를 눌러 비교할 안을 고르세요 (최대 4개, 누른 순서대로 기준 → 비교) · 카드의 ×로 바로 삭제</span></div><div class="btns" id="cmpTools"></div></div>
+    <div class="cmp-chips" id="cmpChips"></div>
+    <div class="qgen" style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
+      <div class="field"><label for="qVar">빠른 안 만들기 · 바꿀 항목</label><select id="qVar">${vars.map(([k,l])=>`<option value="${k}">${esc(l)}</option>`).join("")}</select></div>
+      <div class="field" style="flex:1;min-width:180px"><label for="qVals">넣어 볼 값 (쉼표로 구분)</label><input id="qVals" placeholder="예: 5, 10 (인상률) 또는 10, 20, 30 (할인율)"></div>
+      <button id="btnQGen" class="primary">안 만들기</button>
+    </div><p class="sub" style="font-size:12px;margin-top:6px">현재 등록값을 그대로 두고, 고른 항목만 입력한 값으로 바꾼 안을 한 번에 만듭니다.</p>
+  </section>
+  <section class="panel"><div class="panel-h"><h2>핵심 비교</h2><button id="btnCmpCopy">비교 요약 복사</button></div>
+    <div class="cmp-sum" id="cmpSum"></div>
+    <div class="tbl-wrap" style="margin-top:14px"><table class="ctable" id="cmpTbl"></table></div>
+    <div class="cbars" id="cmpBars" style="margin-top:18px"></div>
+  </section>`;
+  renderCmpBody(r);
+}
+function chipsHTML(r){
+  return r.plans.map(p=>{ const c=calc(p), o=ui.cmp.sel.indexOf(p.id);
+    const ad=r.adopted===p.id;
+    return `<div class="pw"><button class="pchip ${o>=0?"on":""}" data-psel="${p.id}" aria-pressed="${o>=0}"><span class="ord">${o===0?"기준":o>0?`비교 ${o}`:""}</span><span class="t">${esc(p.label)}</span><span class="d">${esc(p.desc||"")}</span><span class="m"><span class="chip ${status(c.mrate)}">${pct(c.mrate)}</span> ${won(c.unitMargin)}원/대</span></button>${ad?`<span class="lock" title="확정된 안은 비교표의 삭제 버튼으로만 지울 수 있습니다">확정</span>`:`<button class="x" data-pdel="${p.id}" aria-label="${esc(p.label)} 삭제" title="바로 삭제">×</button>`}</div>`; }).join("")
+    + `<button class="pchip add" id="btnCmpAdd">+ 현재 등록값으로 안 추가</button>`;
+}
+const selPlans = r => ui.cmp.sel.map(id=>r.plans.find(p=>p.id===id)).filter(Boolean);
+function inRows(P){
+  const nC=Math.max(0,...P.map(p=>(p.items||[]).length));
+  return [["days","리스 기간","일"],["price","소비자가","원"],["rate","할인율","%"],["extra","추가할인","원"],
+    ...Array.from({length:nC},(_,i)=>{ const it=P.map(p=>p.items[i]).find(Boolean)||{}; return [`c${i}`,`${compName(it,i)} 할인율`,"%"]; }),
+    ["ship","배송비","원"],["fee","일리스료","원"],["qty","판매수량","대"],["fixed","고정비","원"]];
+}
+const inVal = (p,key) => key[0]==="c"? ((p.items[+key.slice(1)]||{}).rate) : key==="days"? (+p.days===180?180:365) : p[key];
+function renderCmpBody(r){
+  ui.cmp.sel=ui.cmp.sel.filter(id=>r.plans.some(p=>p.id===id));
+  if(!ui.cmp.sel.length) ui.cmp.sel=r.plans.slice(0,3).map(p=>p.id);
+  document.getElementById("cmpChips").innerHTML=chipsHTML(r);
+  const unconf=r.plans.filter(p=>p.id!==r.adopted).length, unsel=r.plans.filter(p=>p.id!==r.adopted && !ui.cmp.sel.includes(p.id)).length;
+  document.getElementById("cmpTools").innerHTML=
+    (unsel? `<button id="btnDelUnsel">비교에서 뺀 안 삭제 (${unsel})</button>`:"")+
+    (unconf? `<button id="btnDelUnconf" class="danger">확정 안 된 안 모두 삭제 (${unconf})</button>`:"");
+  const P=selPlans(r), T=document.getElementById("cmpTbl");
+  if(!P.length){ T.innerHTML=`<tbody><tr><td class="empty" style="position:static">저장된 안이 없습니다. 위에서 ‘빠른 안 만들기’로 할인율 10, 20, 30처럼 한 번에 만들거나, 검토 화면에서 ‘비교안으로 저장’을 누르세요.</td></tr></tbody>`;
+    document.getElementById("cmpSum").innerHTML=`<p>비교할 안이 없습니다.</p>`; document.getElementById("cmpSum").dataset.text=""; document.getElementById("cmpBars").innerHTML=""; save(); return; }
+  const rows=inRows(P);
+  T.innerHTML=`<thead><tr><th>항목</th>${P.map((p,j)=>`<th class="${j===0?"basecol":""}"><input class="plabel" data-pid="${p.id}" data-pf="label" value="${esc(p.label)}" aria-label="안 이름"><span class="dd" style="color:var(--muted);font-weight:500">${j===0?"기준안":"기준 대비"}${r.adopted===p.id?" · 채택됨":""}</span></th>`).join("")}</tr></thead>
+    <tbody><tr class="grp"><td colspan="${P.length+1}">조건 · 표에서 바로 수정</td></tr>
+    ${rows.map(([key,l,u])=>`<tr><td>${esc(l)}</td>${P.map((p,j)=>{ const v=inVal(p,key), has=key[0]!=="c"||p.items[+key.slice(1)];
+      if(key==="days") return `<td class="${j===0?"basecol":""}"><select class="dsel" data-pid="${p.id}" data-pf="days" aria-label="${esc(p.label)} 리스 기간">${[365,180].map(d=>`<option value="${d}" ${v===d?"selected":""}>${d}일</option>`).join("")}</select><span class="dd" data-d="${p.id}:${key}"></span></td>`;
+      return `<td class="${j===0?"basecol":""}">${has?`<div class="unit"><input class="num" data-pid="${p.id}" data-pf="${key[0]==="c"?"crate":key}" ${key[0]==="c"?`data-pci="${key.slice(1)}"`:""} inputmode="${u==="%"?"decimal":"numeric"}" value="${u==="%"?pv(v||0):won(v||0)}" aria-label="${esc(p.label)} ${esc(l)}"><span>${u}</span></div>`:`<span class="sub">–</span>`}<span class="dd" data-d="${p.id}:${key}"></span></td>`; }).join("")}</tr>`).join("")}
+    </tbody><tbody id="cmpOut"></tbody>`;
+  updateCmpOut(r);
+}
+function updateCmpOut(r){
+  const P=selPlans(r); if(!P.length) return;
+  const t=tgt(), X=P.map(p=>{ const c=calc(p); return {p,c,b:bepOf(c,p.fixed),v:verdictOf(c,bepOf(c,p.fixed))}; }), A=X[0];
+  document.getElementById("cmpChips").innerHTML=chipsHTML(r);
+  // 조건 변동 표시
+  inRows(P).forEach(([key,,u])=>{ X.forEach((x,j)=>{ const el=document.querySelector(`[data-d="${x.p.id}:${key}"]`); if(!el) return;
+    if(j===0){ el.textContent=""; return; } const d=(+inVal(x.p,key)||0)-(+inVal(A.p,key)||0);
+    el.textContent = Math.abs(d)<1e-9? "" : `${d>0?"▲":"▼"} ${u==="%"? pv(Math.abs(d))+"%p" : won(Math.abs(d))+u}`; el.style.color="var(--muted)"; }); });
+  const M=[
+    ["판정",null,x=>`<span class="chip ${x.v.cls}">${x.v.label}</span>`],
+    ["매입원가","원",x=>x.c.total,-1],
+    ["대당 판매금액","원",x=>x.c.unitGross,1],
+    ["대당 마진","원",x=>x.c.unitMargin,1,"strong"],
+    ["마진율","%",x=>x.c.mrate,1,"big",1],
+    ["마진가액 (예상 수량)","원",x=>x.c.margin,1],
+    ["순이익 (고정비 차감)","원",x=>x.b.net,1,"big",1],
+    ["손익분기 수량","대",x=>x.b.bepQty,-1],
+    ["ROI","%",x=>x.b.roi,1],
+    ["손익분기 일리스료","원",x=>x.c.be,0],
+    [`목표 ${t}% 일리스료`,"원",x=>x.c.recFee,0,"",0,1],
+    [`기준안 마진율(${pct(A.c.mrate,1)}) 유지 일리스료`,"원",x=>feeKeepRate(x.c,A.c.mrate),0,"strong",0,1],
+    [`기준안 대당 마진(${won(A.c.unitMargin)}원) 유지 일리스료`,"원",x=>feeKeepUnit(x.c,A.c.unitMargin),0,"strong",0,1],
+  ];
+  const fmt=(u,v)=> !isFinite(v)? "불가" : u==="%"? pct(v,2) : u==="대"? won(v)+"대" : won(v)+"원";
+  const body=M.map(([l,u,get,dir,cls,best,vsFee],mi)=>{
+    if(u===null) return `<tr><td>${l}</td>${X.map((x,j)=>`<td class="${j===0?"basecol":""}">${get(x)}</td>`).join("")}</tr>`;
+    const vals=X.map(get), mx=Math.max(...vals.filter(isFinite));
+    return `<tr class="${mi===6?"key":""}"><td>${l}</td>${X.map((x,j)=>{ const v=vals[j]; let dd="";
+      if(vsFee && isFinite(v)){ const d=v-x.c.fee; dd=`<span class="dd" style="color:${d>0?"var(--bad)":"var(--good)"}">${Math.abs(d)<1?"지금 일리스료로 충분":d>0?`지금보다 +${won(d)}원 필요`:`지금보다 ${won(-d)}원 여유`}</span>`; }
+      else if(j>0 && isFinite(v) && isFinite(vals[0])){ const d=v-vals[0]; if(Math.abs(d)>=(u==="%"?0.005:0.5)){ const good=dir===0? null : (d>0)===(dir>0);
+        dd=`<span class="dd" style="color:${good===null?"var(--muted)":good?"var(--good)":"var(--bad)"}">${d>0?"▲":"▼"} ${u==="%"? Math.abs(d).toFixed(2)+"%p" : u==="대"? won(Math.abs(d))+"대" : won(Math.abs(d))+"원"}</span>`; } else dd=`<span class="dd" style="color:var(--muted)">동일</span>`; }
+      else dd=`<span class="dd"></span>`;
+      const tag= best && X.length>1 && v===mx ? `<span class="best">최대</span>`:"";
+      const color= (l==="순이익 (고정비 차감)"||l==="대당 마진") && v<0 ? "down" : "";
+      return `<td class="${j===0?"basecol":""}"><span class="${cls||""} ${color}">${tag}${l==="마진율"?`<span class="chip ${status(v)}" style="font-size:14px">${pct(v,2)}</span>`:fmt(u,v)}</span>${dd}</td>`; }).join("")}</tr>`; }).join("");
+  document.getElementById("cmpOut").innerHTML=`<tr class="grp"><td colspan="${X.length+1}">결과 (대당 · 예상 수량 기준)</td></tr>${body}
+    <tr><td></td>${X.map((x,j)=>`<td class="${j===0?"basecol":""}"><button class="link" data-popen="${x.p.id}">검토</button><button class="link" data-padopt="${x.p.id}" ${r.adopted===x.p.id?'style="color:var(--good)"':""}>${r.adopted===x.p.id?"채택됨":"이 안으로 확정"}</button><button class="link" style="color:var(--bad)" data-pdel="${x.p.id}">삭제</button></td>`).join("")}</tr>`;
+  // 요약
+  const S=document.getElementById("cmpSum"), keys=inRows(P);
+  if(X.length<2){ S.innerHTML=`<p><b>${esc(A.p.label)}</b>: 마진율 <b>${pct(A.c.mrate,2)}</b>, 대당 마진 <b>${won(A.c.unitMargin)}원</b>, 순이익 <b>${fmtShort(A.b.net)}원</b>. 비교하려면 안을 하나 더 고르세요.</p>`; S.dataset.text=""; }
+  else {
+    const sg=n=>n>0?"+":n<0?"−":"±";
+    const lines=X.slice(1).map(x=>{
+      const ch=keys.filter(([k])=>Math.abs((+inVal(x.p,k)||0)-(+inVal(A.p,k)||0))>1e-9).map(([k,l,u])=>`${l} ${u==="%"?pv(inVal(A.p,k)||0):won(inVal(A.p,k)||0)}${u}→${u==="%"?pv(inVal(x.p,k)||0):won(inVal(x.p,k)||0)}${u}`);
+      const dU=x.c.unitMargin-A.c.unitMargin, dR=x.c.mrate-A.c.mrate, dN=x.b.net-A.b.net;
+      const kR=feeKeepRate(x.c,A.c.mrate), kU=feeKeepUnit(x.c,A.c.unitMargin);
+      const keepH = dR<-0.005 ? `<br><span style="font-size:14px">→ ${esc(x.p.label)} 조건에서 기준안 마진율 ${pct(A.c.mrate,1)}를 지키려면 일리스료 <mark>${isFinite(kR)?won(kR)+"원":"불가"}</mark>${isFinite(kR)?` (지금보다 ${kR-x.c.fee>=0?"+":"−"}${won(Math.abs(kR-x.c.fee))}원)`:""}, 대당 마진 ${won(A.c.unitMargin)}원을 지키려면 <b>${isFinite(kU)?won(kU)+"원":"불가"}</b>이 필요합니다.</span>` : "";
+      const keepT = dR<-0.005 ? ` / 기준안 마진율 유지 일리스료 ${won(kR)}원, 대당 마진 유지 일리스료 ${won(kU)}원` : "";
+      return {h:`<p><b>${esc(x.p.label)}</b>은 <b>${esc(A.p.label)}</b> 대비 ${ch.length?esc(ch.join(", ")):"조건 동일"} → 대당 마진 <mark>${sg(dU)}${won(Math.abs(dU))}원</mark>, 마진율 <b>${sg(dR)}${Math.abs(dR).toFixed(2)}%p</b>, 순이익 <b class="${dN<0?"down":"up"}">${sg(dN)}${fmtShort(Math.abs(dN))}원</b>${keepH}</p>`,
+        t:`· ${x.p.label} vs ${A.p.label}: ${ch.join(", ")||"조건 동일"} → 대당 마진 ${sg(dU)}${won(Math.abs(dU))}원, 마진율 ${sg(dR)}${Math.abs(dR).toFixed(2)}%p, 순이익 ${sg(dN)}${won(Math.abs(dN))}원${keepT}`,ch,x};
+    });
+    // 할인율 1%p당 효과 (할인율만 다른 경우)
+    const onlyRate=lines.find(o=>o.ch.length===1 && o.ch[0].startsWith("할인율"));
+    let per="";
+    if(onlyRate){ const dr=(+onlyRate.x.p.rate)-(+A.p.rate); if(dr){ const u1=(onlyRate.x.c.unitMargin-A.c.unitMargin)/dr, f1=(onlyRate.x.c.recFee-A.c.recFee)/dr;
+      per=`할인율 1%p마다 대당 마진 약 <b>${won(Math.abs(u1))}원</b>, 목표 ${t}% 일리스료 약 <b>${won(Math.abs(f1))}원</b>이 움직입니다.`; } }
+    const feeLine=`목표 마진율 ${t}%를 맞추는 일리스료: ${X.map(x=>`${esc(x.p.label)} <b>${isFinite(x.c.recFee)?won(x.c.recFee)+"원":"불가"}</b>`).join(" · ")}`;
+    const bestN=X.reduce((a,x)=>x.b.net>a.b.net?x:a,X[0]);
+    S.innerHTML=lines.map(o=>o.h).join("")+`<p>${feeLine}${per?` · ${per}`:""}</p><p>순이익이 가장 큰 안은 <mark>${esc(bestN.p.label)}</mark> (${fmtShort(bestN.b.net)}원, 마진율 ${pct(bestN.c.mrate,1)})입니다.</p>`;
+    const hit=rowBySrc(ui.cmp);
+    S.dataset.text=[`[비교] ${hit?hit.sh.name+" · ":""}${r.name}`, ...X.map(x=>`· ${x.p.label} (${x.p.desc||""}): 마진율 ${pct(x.c.mrate,2)}, 대당 마진 ${won(x.c.unitMargin)}원, 순이익 ${won(x.b.net)}원, 손익분기 ${isFinite(x.b.bepQty)?won(x.b.bepQty)+"대":"불가"}, 목표 일리스료 ${won(x.c.recFee)}원`),
+      ``, ...lines.map(o=>o.t), `· ${feeLine.replace(/<[^>]+>/g,"")}`, per?`· ${per.replace(/<[^>]+>/g,"")}`:"", `· 순이익 최대: ${bestN.p.label} (${won(bestN.b.net)}원)`].filter(s=>s!=="").join("\n");
+  }
+  // 막대
+  const mxU=Math.max(1,...X.map(x=>Math.abs(x.c.unitMargin))), mxN=Math.max(1,...X.map(x=>Math.abs(x.b.net)));
+  const bars=(title,get,mx,colorFn,fmtFn)=>`<div><h4>${title}</h4>${X.map(x=>{ const v=get(x); return `<div class="cbar"><span>${esc(x.p.label)}</span><div class="tr"><div class="fl" style="width:${Math.abs(v)/mx*100}%;background:${colorFn(x,v)}"></div></div><span class="vv ${v<0?"down":""}">${fmtFn(v)}</span></div>`; }).join("")}</div>`;
+  document.getElementById("cmpBars").innerHTML=
+    bars("대당 마진 · 마진율",x=>x.c.unitMargin,mxU,(x,v)=>v<0?"var(--bad)":status(x.c.mrate)==="good"?"var(--good)":"var(--warn)",v=>won(v)+"원")+
+    bars("순이익 (예상 수량, 고정비 차감)",x=>x.b.net,mxN,(x,v)=>v<0?"var(--bad)":"var(--accent)",v=>fmtShort(v)+"원");
+  save();
+}
+
+/* 안 삭제 + 되돌리기 */
+let undoBuf=null, undoT;
+function deletePlans(r, ids){
+  if(!ids.length) return;
+  const removed=r.plans.map((p,i)=>({p,i})).filter(x=>ids.includes(x.p.id));
+  undoBuf={r, removed, adopted:r.adopted, sel:[...ui.cmp.sel]};
+  r.plans=r.plans.filter(p=>!ids.includes(p.id));
+  if(ids.includes(r.adopted)) r.adopted=null;
+  ui.cmp.sel=ui.cmp.sel.filter(x=>!ids.includes(x));
+  save(); if(ui.view==="cmp" && cmpRow()===r) renderCmpBody(r);
+  const names=removed.map(x=>x.p.label);
+  document.getElementById("undoMsg").textContent = `${names.length>3? names.slice(0,3).join(", ")+` 외 ${names.length-3}개` : names.join(", ")} 삭제했습니다`;
+  const u=document.getElementById("undo"); u.hidden=false; clearTimeout(undoT); undoT=setTimeout(()=>{ u.hidden=true; undoBuf=null; },7000);
+}
+document.getElementById("btnUndo").addEventListener("click",()=>{
+  if(!undoBuf) return; const {r,removed,adopted,sel}=undoBuf;
+  removed.sort((a,b)=>a.i-b.i).forEach(x=>r.plans.splice(Math.min(x.i,r.plans.length),0,x.p));
+  r.adopted=adopted; undoBuf=null; document.getElementById("undo").hidden=true; clearTimeout(undoT);
+  if(ui.cmp && cmpRow()===r) ui.cmp.sel=sel;
+  save(); if(ui.view==="cmp" && cmpRow()===r) renderCmpBody(r); toast("삭제를 되돌렸습니다");
+});
+
+/* ---------- 이벤트 ---------- */
+document.querySelector(".nav").addEventListener("click",e=>{ const b=e.target.closest("[data-nav]"); if(b) setView(b.dataset.nav); });
+const V=document.getElementById("view");
+function clearExample(){ if(F().example){ F().example=false; const b=document.getElementById("exBanner"); if(b) b.hidden=true; } }
+const numVal = (el,isRate) => el.value.trim()===""? "" : (isRate? Math.min(100,Math.max(0,parseNum(el.value))) : Math.max(0,parseNum(el.value)));
+V.addEventListener("change",e=>{
+  if(e.target.id==="impFile"){ const f=e.target.files&&e.target.files[0]; if(!f) return; const rd=new FileReader();
+    rd.onload=()=>{ try{ const j=JSON.parse(rd.result); importProducts(Array.isArray(j)? j : (j.products||[])); }catch(err){ toast("JSON 파일을 읽지 못했습니다. 이 앱에서 내려받은 백업 파일인지 확인하세요"); } e.target.value=""; };
+    rd.readAsText(f); return; }
+  if(e.target.id==="cmpRow"){ const [s,r]=e.target.value.split(":").map(Number); ui.cmp={sheet:s,row:r,sel:[]}; renderCmp(); }
+});
+V.addEventListener("input",e=>{
+  const el=e.target;
+  if(el.dataset.pid){ const r=cmpRow(), p=r&&r.plans.find(x=>x.id===+el.dataset.pid); if(!p) return; const pf=el.dataset.pf;
+    if(pf==="label"){ p.label=el.value||"이름 없음"; document.getElementById("cmpChips").innerHTML=chipsHTML(r); updateCmpOut(r); save(); return; }
+    if(pf==="crate"){ const it=p.items[+el.dataset.pci]; if(it) it.rate=numVal(el,true)||0; }
+    else p[pf]= numVal(el,pf==="rate")||0;
+    updateCmpOut(r); save(); return; }
+  if(el.dataset.k){ const k=el.dataset.k; F()[k]= (k==="partner"||k==="name")? el.value : numVal(el,k==="rate"); el.classList.remove("err"); clearExample(); updateCalc(); return; }
+  if(el.dataset.ci!=null && el.dataset.cf){ const it=F().items[+el.dataset.ci]; if(!it) return; const cf=el.dataset.cf; it[cf]= cf==="name"? el.value : numVal(el,cf==="rate"); clearExample(); updateCalc(); return; }
+  if(el.dataset.s){ state.set[el.dataset.s]=Math.min(99,Math.max(0,parseNum(el.value))); updateCalc(); return; }
+  if(el.id==="simPct"||el.id==="simRate"){ ui[el.id]=el.value; const s=cur(); if(s) renderSim(s); return; }
+  const sh=cur(); if(!sh) return;
+  if(el.id==="shName"){ sh.name=el.value||"이름 없음"; sheetIdByName.set(sh.name.trim().toLowerCase(),sh.id); el.size=Math.max(6,el.value.length+2); updateSheet(sh); return; }
+  const f=el.dataset.f; if(!f) return;
+  const r=sh.rows.find(x=>x.id===+el.dataset.id); if(!r) return;
+  if(f==="name"){ r.name=el.value; save(); return; }
+  const v=parseNum(el.value); r[f]= f==="rate"? Math.min(100,Math.max(0,v)) : Math.max(0,Math.round(v));
+  updateRow(r); updateSheet(sh);
+});
+V.addEventListener("focusout",e=>{
+  const el=e.target;
+  if(el.dataset.pid && el.dataset.pf!=="label"){ const r=cmpRow(), p=r&&r.plans.find(x=>x.id===+el.dataset.pid); if(p){ const pf=el.dataset.pf; el.value = pf==="crate"? pv((p.items[+el.dataset.pci]||{}).rate||0) : pf==="rate"? pv(p.rate) : won(p[pf]); } return; }
+  if(el.dataset.k && el.dataset.k!=="partner" && el.dataset.k!=="name" && el.value.trim()!=="") el.value=fmtVal(el.dataset.k,F()[el.dataset.k]);
+  if(el.dataset.cf && el.dataset.cf!=="name" && el.value.trim()!==""){ const it=F().items[+el.dataset.ci]; if(it) el.value= el.dataset.cf==="rate"? pv(it.rate) : won(it[el.dataset.cf]); }
+  const f=el.dataset&&el.dataset.f; if(f && ["price","ship","fee","qty","extra"].includes(f)) el.value=won(parseNum(el.value));
+});
+V.addEventListener("focusin",e=>{ const el=e.target; if(el.tagName==="INPUT" && el.classList.contains("num")) el.select(); });
+V.addEventListener("submit",e=>e.preventDefault());
+V.addEventListener("keydown",e=>{
+  const el=e.target;
+  if(e.key==="Enter" && el.tagName==="INPUT" && el.closest(".meet")){ e.preventDefault(); el.blur(); return; }
+  const t=el.closest&&el.closest("tr.go"); if(t&&(e.key==="Enter"||e.key===" ")){ e.preventDefault(); t.click(); }
+});
+const arm={};
+function twoClick(btn,key,label,armed,fn){
+  if(!arm[key]){ btn.textContent=armed; btn.classList.add("armed"); arm[key]=setTimeout(()=>{arm[key]=null;btn.textContent=label;btn.classList.remove("armed");},3000); return; }
+  clearTimeout(arm[key]); arm[key]=null; fn();
+}
+function validForm(){
+  const f=F(), bad=[]; if(!String(f.partner||"").trim()) bad.push("cPartner"); if(!String(f.name||"").trim()) bad.push("cName"); if(!(+f.price>0)) bad.push("cPrice"); if(!(+f.fee>0)) bad.push("cFee");
+  bad.forEach(id=>document.getElementById(id)?.classList.add("err"));
+  if(bad.length){ toast("빨간 칸을 채워 주세요"); document.getElementById(bad[0])?.focus(); }
+  return !bad.length;
+}
+const rowFromForm = f => ({name:f.name.trim(),days:+f.days===180?180:365,price:+f.price,rate:+f.rate||0,extra:+f.extra||0,ship:+f.ship||0,fee:+f.fee,qty:+f.qty||100,fixed:+f.fixed||0,
+  items:(f.items||[]).filter(it=>+it.price>0).map(it=>({name:it.name,price:+it.price,rate:+it.rate||0,extra:+it.extra||0,n:Math.max(1,+it.n||1)}))});
+V.addEventListener("click",e=>{
+  const t=e.target.closest("button, tr.go"); if(!t) return;
+  if(t.dataset.simkeep){ ui.simKeep=t.dataset.simkeep; document.querySelectorAll("[data-simkeep]").forEach(b=>b.classList.toggle("on",b===t)); const s=cur(); if(s) renderSim(s); return; }
+  if(t.dataset.simcmp){ const sh=cur(), r=sh&&sh.rows.find(x=>x.id===+t.dataset.simcmp); if(!r) return; const s=simOf(r);
+    const b0=basePlanOf(r);
+    const tag=`소비자가 ${s.pctv>=0?"+":""}${pv(s.pctv)}%${s.dr?` · 할인율 ${s.dr>0?"+":""}${pv(s.dr)}%p`:""}`;
+    const p1=addPlan(r,s.after,`${tag} · 일리스료 그대로`);
+    const p2=addPlan(r,{...s.after,fee:isFinite(s.keep)?s.keep:s.after.fee},`${tag} · 일리스료 ${won(s.keep)}원`);
+    ui.cmp={sheet:sh.id,row:r.id,sel:[b0.id,p1.id,p2.id]}; save(); setView("cmp");
+    toast(`${r.name}: 현재안과 인상안 2개를 만들었습니다`); return; }
+  if(t.dataset.days){ F().days=+t.dataset.days; clearExample(); document.querySelectorAll("[data-days]").forEach(b=>{ const on=b===t; b.classList.toggle("on",on); b.setAttribute("aria-pressed",on); }); updateCalc(); return; }
+  if(t.dataset.comp!=null){ ui.comp=+t.dataset.comp; updateCalc(); return; }
+  if(t.dataset.crm!=null){ F().items.splice(+t.dataset.crm,1); ui.comp=0; renderCalc(); toast("구성품을 뺐습니다"); return; }
+  if(t.dataset.tab){ ui.sheet= t.dataset.tab==="sum"? "sum" : +t.dataset.tab; renderList(); return; }
+  if(t.dataset.go){ ui.sheet=+t.dataset.go; renderList(); return; }
+  if(t.dataset.load){ const s=state.scen.find(x=>x.id===+t.dataset.load); if(s){ const {id,label,...rest}=s; state.form={...rest,items:cloneItems(rest.items),example:false}; delete state.form.src; renderCalc(); window.scrollTo({top:0}); toast(`${label}을 불러왔습니다`); } return; }
+  if(t.dataset.sdel){ state.scen=state.scen.filter(x=>x.id!==+t.dataset.sdel); renderScen(); save(); return; }
+  if(t.dataset.tocalc){ const sh=cur(), r=sh&&sh.rows.find(x=>x.id===+t.dataset.tocalc); if(r) openInCalc(sh,r,r); return; }
+  if(t.dataset.tocmp){ const sh=cur(); ui.cmp={sheet:sh.id,row:+t.dataset.tocmp,sel:[]}; setView("cmp"); return; }
+  if(t.dataset.psel){ const r=cmpRow(); if(!r) return; const id=+t.dataset.psel, s=ui.cmp.sel, i=s.indexOf(id);
+    if(i>=0) s.splice(i,1); else { if(s.length>=4){ toast("한 번에 최대 4개까지 비교할 수 있습니다"); return; } s.push(id); }
+    renderCmpBody(r); return; }
+  if(t.dataset.popen){ const hit=rowBySrc(ui.cmp), p=hit&&hit.r.plans.find(x=>x.id===+t.dataset.popen); if(p) openInCalc(hit.sh,hit.r,p,p.label); return; }
+  if(t.dataset.padopt){ const hit=rowBySrc(ui.cmp), p=hit&&hit.r.plans.find(x=>x.id===+t.dataset.padopt); if(!p) return;
+    Object.assign(hit.r,{price:p.price,rate:p.rate,extra:p.extra,ship:p.ship,fee:p.fee,qty:p.qty,fixed:p.fixed,items:cloneItems(p.items)}); hit.r.adopted=p.id; save(); renderCmpBody(hit.r);
+    toast(`${hit.r.name}의 등록값을 ${p.label}으로 확정했습니다`); return; }
+  if(t.dataset.pdel){ const hit=rowBySrc(ui.cmp), id=+t.dataset.pdel; if(!hit) return;
+    if(hit.r.adopted===id) twoClick(t,"plan"+id,"삭제","확정안 삭제?",()=>deletePlans(hit.r,[id]));
+    else deletePlans(hit.r,[id]);
+    return; }
+  const sh=cur();
+  if(t.dataset.del && sh){ const r=sh.rows.find(x=>x.id===+t.dataset.del); twoClick(t,"row"+r.id,"×","삭제?",()=>{ sh.rows=sh.rows.filter(x=>x.id!==r.id); renderLedger(sh); toast(`‘${r.name}’을 삭제했습니다`); }); return; }
+  if(t.dataset.bulk && sh){
+    const k=t.dataset.bulk, el=document.getElementById({price:"bPrice",rate:"bRate",extra:"bExtra",ship:"bShip",qty:"bQty"}[k]);
+    if(el.value.trim()===""){ toast("적용할 값을 입력하세요"); el.focus(); return; }
+    const v=parseNum(el.value);
+    sh.rows.forEach(r=>{ if(k==="price") r.price=Math.max(0,Math.round(r.price*(1+v/100))); else if(k==="rate") r.rate=Math.min(100,Math.max(0,v)); else r[k]=Math.max(0,Math.round(v)); });
+    el.value=""; renderLedger(sh); toast("일괄 적용했습니다"); return;
+  }
+  switch(t.id){
+    case "btnPlan": { if(!validForm()) return; const f=F(); let hit=f.src&&rowBySrc(f.src);
+      if(!hit){ let s=findSheet(f.partner); if(!s){ s=mkSheet({name:f.partner.trim(),rows:[]}); state.sheets.push(s); } const r=mkRow(rowFromForm(f)); s.rows.push(r); f.src={sheet:s.id,row:r.id}; hit={sh:s,r}; }
+      const p=addPlan(hit.r,f,planDesc(f)); save(); renderCalc();
+      toast(`${hit.r.name}의 ${p.label}으로 저장했습니다. 다른 조건으로 바꿔 또 저장하면 비교 시트에서 나란히 볼 수 있습니다`); break; }
+    case "btnGoCmp": { const f=F(); if(f.src){ ui.cmp={sheet:f.src.sheet,row:f.src.row,sel:[]}; setView("cmp"); } break; }
+    case "btnCmpAdd": { const r=cmpRow(); if(!r) return; if(ui.cmp.sel.length>=4) ui.cmp.sel.shift(); const p=addPlan(r,r,"현재 등록값"); ui.cmp.sel.push(p.id); save(); renderCmpBody(r); toast(`${p.label}을 추가했습니다. 표에서 숫자를 바로 고칠 수 있습니다`); break; }
+    case "btnQGen": { const r=cmpRow(); if(!r) return; const key=document.getElementById("qVar").value, raw=document.getElementById("qVals").value;
+      const meta=qVarMeta(r,key);
+      const vals=raw.split(/[,\s/]+/).map(s=>s.trim()).filter(Boolean).map(parseNum).filter(v=>isFinite(v)&&(meta.neg||v>=0));
+      if(!vals.length){ toast("값을 쉼표로 구분해 입력하세요. 예: 0, 5, 10"); document.getElementById("qVals").focus(); return; }
+      const base=basePlanOf(r), ids=[];
+      vals.slice(0,6).forEach(v=>{ const p=addPlan(r,r,meta.d? meta.d(v) : `${meta.l} ${meta.u==="%"?pv(v):won(v)}${meta.u}`); meta.set(p,v); if(samePlan(p,r)){ r.plans.pop(); return; } p.desc=p.desc; ids.push(p.id); });
+      ui.cmp.sel=[base.id,...ids].slice(0,4); document.getElementById("qVals").value=""; save(); renderCmpBody(r);
+      toast(`기준안(현재 등록값) + ${ids.length}개 안을 비교합니다${vals.length>6?" (최대 6개까지 만들었습니다)":""}`); break; }
+    case "btnDelUnconf": { const r=cmpRow(); if(r) deletePlans(r, r.plans.filter(p=>p.id!==r.adopted).map(p=>p.id)); break; }
+    case "btnDelUnsel": { const r=cmpRow(); if(r) deletePlans(r, r.plans.filter(p=>p.id!==r.adopted && !ui.cmp.sel.includes(p.id)).map(p=>p.id)); break; }
+    case "btnImport": document.getElementById("impFile").click(); break;
+    case "btnExport": { const d=new Date(), ds=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`; downloadJSON(`margin-backup-${ds}.json`,{exportedAt:d.toISOString(),products:allProductDocs(),settings:state.set}); toast("백업 파일을 내려받았습니다"); break; }
+    case "btnSeed": fetch("data/products-seed.json",{cache:"no-store"}).then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); })
+      .then(j=>importProducts(Array.isArray(j)? j : (j.products||[])))
+      .catch(()=>toast("data/products-seed.json을 찾지 못했습니다. ‘JSON 가져오기’로 파일을 직접 선택하세요")); break;
+    case "btnCmpOpen": { const hit=rowBySrc(ui.cmp); if(hit) openInCalc(hit.sh,hit.r,hit.r); break; }
+    case "btnCmpCopy": { const d=document.getElementById("cmpSum")?.dataset.text; if(!d){ toast("비교할 안을 2개 이상 고르세요"); return; } copyText(d,"비교 요약을 복사했습니다"); break; }
+    case "btnAddComp": F().items.push({id:uid++,name:"",price:"",rate:"",extra:"",n:1}); clearExample(); renderCalc(); { const els=document.querySelectorAll('[data-cf="name"]'); els[els.length-1]?.focus(); } break;
+    case "btnClear": state.form={partner:F().partner||"",name:"",days:365,price:"",rate:"",extra:"",ship:"",fee:"",qty:100,fixed:"",items:[],example:false}; state.base=null; renderCalc(); document.getElementById("cName").focus(); break;
+    case "btnBase": if(state.base){ state.base=null; toast("기준안을 해제했습니다"); } else { state.base=JSON.parse(JSON.stringify(F())); toast("현재 조건을 기준안으로 고정했습니다. 이제 숫자를 바꾸면 변동폭이 보입니다"); } updateCalc(); break;
+    case "btnScen": { if(!validForm()) return; const label=`${String.fromCharCode(65+(state.scen.length%26))}안`; const {src,...rest}=F(); state.scen.push({...JSON.parse(JSON.stringify(rest)),id:uid++,label}); renderScen(); save(); toast(`${label}으로 저장했습니다`); break; }
+    case "btnReg": { if(!validForm()) return; const f=F(); let s=findSheet(f.partner); if(!s){ s=mkSheet({name:f.partner.trim(),rows:[]}); state.sheets.push(s); }
+      const r=mkRow(rowFromForm(f)); s.rows.push(r); f.src={sheet:s.id,row:r.id}; renderCalc(); toast(`${s.name} 시트에 ‘${f.name}’을 추가했습니다`); break; }
+    case "btnUpd": { if(!validForm()) return; const f=F(), hit=rowBySrc(f.src); if(!hit){ toast("원래 상품을 찾을 수 없습니다. ‘새 상품으로 추가’를 눌러 주세요"); return; }
+      const nr=rowFromForm(f); Object.assign(hit.r,nr,{items:cloneItems(nr.items)}); save(); toast(`‘${hit.r.name}’에 반영했습니다`); break; }
+    case "btnReport": { const d=document.getElementById("doc").dataset.text; if(!d){ toast("소비자가와 일리스료를 먼저 입력하세요"); return; } copyText(d,"보고서 텍스트를 복사했습니다. 메일·메신저에 붙여넣으세요"); break; }
+    case "btnCopy": copyTSV(sh); break;
+    case "btnCopyAll": copyTSV(null); break;
+    case "btnDelSheet": twoClick(t,"sheet"+sh.id,"시트 삭제","한 번 더 누르면 삭제",()=>{ state.sheets=state.sheets.filter(x=>x.id!==sh.id); ui.sheet="sum"; renderList(); save(); toast(`${sh.name} 시트를 삭제했습니다`); }); break;
+  }
+});
+function copyText(text,msg){
+  const ok=()=>toast(msg);
+  const fb=()=>{ const ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta); ta.select(); try{document.execCommand("copy"); ok();}catch(e){toast("복사에 실패했습니다");} ta.remove(); };
+  try{ navigator.clipboard.writeText(text).then(ok,fb); }catch(e){ fb(); }
+}
+function copyTSV(sh){
+  const head=["상품명","구성","소비자가(합계)","본품할인율(%)","추가할인","제휴할인가(합계)","공급가","배송비","매입원가","일리스료","판매수량","판매금액","매입가액","마진가액","마진율(%)","대당마진","손익분기일리스료","손익분기할인율(%)"];
+  const line=r=>{ const c=calc(r); return [r.name,c.isSet?"본품+"+c.comps.map(x=>x.name+(x.n>1?"×"+x.n:"")+"("+pv(x.r)+"%)").join("+"):"단품",c.price,c.rate,c.extra,c.amt,c.supply,c.ship,c.total,c.fee,c.qty,c.gross,c.purchase,c.margin,c.mrate.toFixed(2),c.unitMargin,c.be,c.minRate.toFixed(2)].join("\t"); };
+  const text= sh? [head.join("\t"),...sh.rows.map(line)].join("\n") : ["제휴사\t"+head.join("\t"),...state.sheets.flatMap(x=>x.rows.map(r=>x.name+"\t"+line(r)))].join("\n");
+  copyText(text,"복사했습니다. 엑셀에 붙여넣으세요");
+}
+let tt; function toast(m){ const t=document.getElementById("toast"); t.textContent=m; t.classList.add("on"); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove("on"),2600); }
+window.addEventListener("hashchange",()=>{ const h=location.hash.slice(1); if((h==="calc"||h==="list"||h==="cmp")&&h!==ui.view){ ui.view=h; render(); } });
+ui.view = ["list","cmp"].includes(location.hash.slice(1))? location.hash.slice(1) : "calc";
+document.getElementById("btnMigrate").addEventListener("click",migrateOld);
+document.getElementById("btnMigrateNo").addEventListener("click",()=>{ try{ localStorage.setItem(OLD_KEY+"-migrated","skip"); }catch(e){} updateMigrate(); });
+render(); tryConnect();
+</script>
+
+</body></html>

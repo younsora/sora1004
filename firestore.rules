@@ -1,0 +1,30 @@
+rules_version = '2';
+
+// 회사 Google 계정(@example.co.kr)으로 로그인한 사람만 읽고 쓸 수 있습니다.
+// ▣ 아래 example[.]co[.]kr 을 회사 도메인으로 바꾸세요. 점(.)은 [.] 로 적습니다.
+//    예) mycompany.co.kr → mycompany[.]co[.]kr
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isMember() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.matches('.*@example[.]co[.]kr$');
+    }
+
+    // 등록 상품 + 비교안
+    match /products/{productId} {
+      allow read, write: if isMember();
+    }
+
+    // 목표 마진율 등 공통 설정
+    match /config/{docId} {
+      allow read, write: if isMember();
+    }
+
+    // 그 밖의 모든 경로는 막습니다.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

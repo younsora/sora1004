@@ -1,0 +1,12 @@
+{
+  "note": "등록 상품 초기 데이터. 매입 조건이 들어 있으니 공개(Public) 저장소에는 올리지 마세요.",
+  "products": [
+    {"partner":"Arai","name":"아라이(70)","days":365,"price":700000,"rate":15,"extra":0,"ship":3000,"fee":2000,"qty":100,"fixed":0,"order":1,"items":[],"plans":[],"adoptedK":null},
+    {"partner":"Arai","name":"아라이(82)","days":365,"price":820000,"rate":15,"extra":0,"ship":3000,"fee":2300,"qty":100,"fixed":0,"order":2,"items":[],"plans":[],"adoptedK":null},
+    {"partner":"Arai","name":"아라이(87)","days":365,"price":870000,"rate":15,"extra":0,"ship":3000,"fee":2500,"qty":100,"fixed":0,"order":3,"items":[],"plans":[],"adoptedK":null},
+    {"partner":"Cardo","name":"팩톡프로","days":365,"price":699000,"rate":25,"extra":0,"ship":3000,"fee":2000,"qty":100,"fixed":0,"order":4,"items":[],"plans":[],"adoptedK":null},
+    {"partner":"Cardo","name":"팩톡네오","days":365,"price":465000,"rate":25,"extra":0,"ship":3000,"fee":1300,"qty":100,"fixed":0,"order":5,"items":[],"plans":[],"adoptedK":null},
+    {"partner":"GoPro","name":"고프로set","days":365,"price":728000,"rate":15,"extra":0,"ship":0,"fee":2300,"qty":100,"fixed":0,"order":6,"items":[],"plans":[],"adoptedK":null},
+    {"partner":"Inavi","name":"IB100set","days":365,"price":239000,"rate":30,"extra":85600,"ship":0,"fee":1000,"qty":100,"fixed":0,"order":7,"items":[],"plans":[],"adoptedK":null}
+  ]
+}
